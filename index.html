@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b4f52">
+<meta name="color-scheme" content="light dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ตารางเวร">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>ตารางเวร</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script>try{var __t=localStorage.getItem("shiftpay.theme");if(__t==="light"||__t==="dark")document.documentElement.setAttribute("data-theme",__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout concept: a roster-paper feel. Navy header band with the month switcher,
+   four tabs, then white "sheet" cards with ruled rows. Shift chips echo the
+   ช / บ / ด codes used on the ward roster. */
+:root {
+  --bg: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #6b6a65;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --brand: #0b4f52;
+  --brand-ink: #f2fbfa;
+  --brand-dim: #a5d3d0;
+  --accent: #0f7f80;
+  --accent-strong: #0b6b6d;
+  --on-accent: #ffffff;
+  --field: #f3f2ee;
+  --weekend: #b3261e;
+  --danger: #b3261e;
+  --good: #006300;
+  --c-m: #fff0c2;
+  --c-a: #fddcc8;
+  --c-n: #dcd9f5;
+  --c-d: #d8efe3;
+  --c-ot: #fbd3de;
+  --s1: #0f8a8a; --s2: #d9466f; --s3: #eda100; --s4: #6250d6; --s5: #eb6834; --s6: #008300;
+  --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Sarabun", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #a09e96;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --brand: #062a2c; --brand-ink: #e9f7f6; --brand-dim: #86bfbc;
+    --accent: #2bb3b0; --accent-strong: #2bb3b0; --on-accent: #04191a;
+    --field: #232322; --weekend: #f2877f; --danger: #f2877f; --good: #0ca30c;
+    --c-m: #4a3b10; --c-a: #4d2a1a; --c-n: #2b2a5c; --c-d: #1f4033; --c-ot: #5a2236;
+    --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #a09e96;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --brand: #062a2c; --brand-ink: #e9f7f6; --brand-dim: #86bfbc;
+  --accent: #2bb3b0; --accent-strong: #2bb3b0; --on-accent: #04191a;
+  --field: #232322; --weekend: #f2877f; --danger: #f2877f; --good: #0ca30c;
+  --c-m: #4a3b10; --c-a: #4d2a1a; --c-n: #2b2a5c; --c-d: #1f4033; --c-ot: #5a2236;
+  --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--brand); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* header band */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--brand); color: var(--brand-ink); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px 0; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand b { font-size: 18px; font-weight: 700; letter-spacing: 0.01em; }
+.brand span { font-size: 12.5px; color: var(--brand-dim); }
+.sync { font-size: 12px; color: var(--brand-dim); display: flex; align-items: center; gap: 6px; }
+.sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-dim); display: inline-block; }
+.sync.ok i { background: #55c98a; }
+.sync.off i { background: #e6a23c; }
+.tools { display: flex; align-items: center; gap: 12px; }
+.themebtn { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.12); color: var(--brand-ink); border: 1px solid rgba(255,255,255,0.24); border-radius: 999px; padding: 5px 12px 5px 9px; font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+.themebtn:hover { background: rgba(255,255,255,0.22); }
+.themebtn:focus-visible { outline-color: var(--brand-ink); }
+.themebtn svg { width: 16px; height: 16px; flex: none; }
+@media (max-width: 480px) { .themebtn span { display: none; } .themebtn { padding: 6px 8px; } .sync { font-size: 11.5px; } }
+.bk { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding-top: 8px; }
+.tabs button { background: transparent; border: 0; color: var(--brand-dim); padding: 10px 4px 11px; font-weight: 500; font-size: 14.5px; border-bottom: 3px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--brand-ink); border-bottom-color: var(--brand-ink); font-weight: 600; }
+.tabs button:focus-visible { outline-color: var(--brand-ink); outline-offset: -3px; }
+
+main { padding-block: 18px 56px; display: block; }
+.stack { display: grid; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; min-width: 0; }
+.card > h2, .card-h { font-size: 15px; font-weight: 600; margin: 0 0 12px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card-h small, .sub { font-size: 12.5px; color: var(--ink2); font-weight: 400; }
+.notice { border: 1px dashed var(--axis); border-radius: 10px; padding: 14px 16px; color: var(--ink2); background: var(--surface); }
+.notice b { color: var(--ink); }
+.notice.warn { border-color: #e6a23c; }
+.link { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 0; }
+
+/* toolbar */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar h1 { font-size: 20px; font-weight: 700; margin: 0 6px; min-width: 9.5em; text-align: center; }
+.btn { background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 6px 12px; min-height: 36px; font-weight: 500; }
+.btn:hover { border-color: var(--ink2); }
+.btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--on-accent); }
+.btn.icon { width: 38px; padding: 0; font-size: 18px; line-height: 1; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.spacer { flex: 1; }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1fr auto; gap: 8px 24px; align-items: end; }
+.hero .lab { font-size: 13px; color: var(--ink2); }
+.hero .big { font-size: clamp(36px, 9vw, 54px); font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
+.hero .big small { font-size: 0.45em; font-weight: 500; color: var(--ink2); margin-left: 4px; }
+.hero .meta { color: var(--ink2); font-size: 14px; }
+.delta { text-align: right; font-size: 13px; color: var(--ink2); }
+.delta b { display: block; font-size: 16px; color: var(--ink); }
+.delta .up { color: var(--good); }
+@media (max-width: 560px) { .hero { grid-template-columns: 1fr; } .delta { text-align: left; } }
+
+/* proportion bar + legend */
+.pbar { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; background: var(--field); }
+.pbar span { display: block; min-width: 3px; }
+.legend { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 24px; }
+.legend li { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 8px; align-items: center; font-size: 14px; }
+.legend li.zero { color: var(--muted); }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.legend .pc { color: var(--ink2); font-size: 12.5px; min-width: 3.2em; text-align: right; }
+.inline-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink2); margin-top: 10px; }
+.inline-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.inline-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* tables */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 600; font-size: 12.5px; color: var(--ink2); vertical-align: bottom; line-height: 1.3; }
+.scroll td:first-child, .scroll th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+.scroll tr.tot td:first-child { background: var(--field); }
+.scroll tr.click:hover td:first-child { background: var(--field); }
+tr.tot td { font-weight: 700; background: var(--field); }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--field); }
+tr.empty td { color: var(--muted); }
+.tnote { font-size: 12.5px; color: var(--ink2); margin: 10px 0 0; }
+
+/* chips */
+.chip { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 12.5px; font-weight: 600; line-height: 1.5; background: var(--field); white-space: nowrap; }
+.chip.m { background: var(--c-m); } .chip.a { background: var(--c-a); } .chip.n { background: var(--c-n); } .chip.d { background: var(--c-d); }
+.chip.ot { background: var(--c-ot); }
+.chip.off { background: transparent; color: var(--muted); font-weight: 500; }
+
+/* calendar */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal .dow { text-align: center; font-size: 12.5px; color: var(--ink2); font-weight: 600; padding-bottom: 2px; }
+.cal .dow.we { color: var(--weekend); }
+.cal .blank { min-height: 1px; }
+.cal button.cell { text-align: left; background: var(--bg); border: 1px solid var(--grid); border-radius: 6px; min-height: 76px; padding: 4px 5px; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; overflow: hidden; }
+.cal button.cell:hover { border-color: var(--ink2); }
+.cal button.cell.today { border: 2px solid var(--accent); padding: 3px 4px; }
+.cal .dn { font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+.cal .dn.we { color: var(--weekend); }
+.cal .amt { font-size: 11.5px; color: var(--ink2); margin-top: auto; }
+.cal .chips { display: flex; flex-wrap: wrap; gap: 2px; }
+.cal .chip { font-size: 11.5px; padding: 0 5px; }
+@media (max-width: 560px) {
+  .cal .amt, .cal .chip .u { display: none; }
+  .cal button.cell { min-height: 62px; padding: 3px; }
+  .cal button.cell.today { padding: 2px; }
+  .cal { gap: 3px; }
+  .cal .chip { font-size: 10px; padding: 0 3px; letter-spacing: -0.02em; }
+  .toolbar h1 { flex: 1; min-width: 0; margin: 0; }
+}
+
+/* bar charts */
+.chart { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: 0 6px; }
+.yax { position: relative; height: 170px; font-size: 11.5px; color: var(--muted); }
+.yax span { position: absolute; right: 0; transform: translateY(50%); font-variant-numeric: tabular-nums; }
+.plot { position: relative; height: 170px; border-bottom: 1px solid var(--axis); }
+.plot .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--grid); }
+.cols { position: absolute; inset: 0; display: grid; gap: 3px; align-items: end; }
+.col { height: 100%; display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; background: transparent; border: 0; padding: 0; position: relative; }
+.col .stackbar { width: 100%; max-width: 22px; display: flex; flex-direction: column-reverse; }
+.col .seg { width: 100%; }
+.col .seg + .seg { border-bottom: 2px solid var(--surface); }
+.col:hover::before, .col:focus-visible::before { content: ""; position: absolute; inset: 0; background: var(--field); z-index: 0; border-radius: 3px; }
+.col .stackbar { position: relative; z-index: 1; border-radius: 3px 3px 0 0; overflow: hidden; }
+.xax { grid-column: 2; display: grid; gap: 3px; font-size: 11.5px; color: var(--muted); padding-top: 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.tip { position: absolute; z-index: 5; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 9px; border-radius: 6px; font-size: 12.5px; line-height: 1.4; white-space: nowrap; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+@media (max-width: 600px) { .xax span.minor { visibility: hidden; } }
+
+/* log */
+.extras { display: grid; gap: 8px; }
+.exrow { display: grid; grid-template-columns: minmax(90px, 1fr) 90px 90px 110px; gap: 8px; align-items: center; }
+.exrow .calc { color: var(--ink2); font-size: 13px; text-align: right; }
+.exrow .amt { text-align: right; font-weight: 600; }
+.exrow.o { grid-template-columns: minmax(90px, 1fr) 130px 38px; }
+.exsum { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--grid); padding-top: 10px; font-weight: 600; }
+input[type="text"], input[type="number"], select { background: var(--field); border: 1px solid var(--axis); border-radius: 7px; padding: 6px 8px; min-height: 36px; width: 100%; min-width: 0; }
+input[type="number"] { font-variant-numeric: tabular-nums; }
+input:disabled, select:disabled { opacity: .6; cursor: not-allowed; }
+.rowhead, .row { display: grid; grid-template-columns: 112px 128px 200px 104px 96px 112px minmax(120px, 1fr); gap: 8px; align-items: center; padding: 6px 12px; }
+.rowhead { font-size: 12.5px; font-weight: 600; color: var(--ink2); border-bottom: 1px solid var(--axis); padding-block: 8px; }
+.rowhead .r, .row .r { text-align: right; }
+.row { border-bottom: 1px solid var(--grid); }
+.row.hl { background: var(--field); }
+.row.we .dow { color: var(--weekend); }
+.row .dcell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.row .dnum { font-weight: 700; min-width: 1.6em; text-align: right; font-variant-numeric: tabular-nums; }
+.row .dow { font-size: 13px; color: var(--ink2); min-width: 1.6em; }
+.row .mini { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); padding: 0; line-height: 1; font-size: 15px; }
+.row .mini[hidden] { display: none; }
+.row .pay, .row .tot { text-align: right; font-variant-numeric: tabular-nums; }
+.row .tot { font-weight: 700; }
+.row .pay.bad { color: var(--danger); font-weight: 600; }
+.row select.sh[data-c="m"] { background: var(--c-m); } .row select.sh[data-c="a"] { background: var(--c-a); }
+.row select.sh[data-c="n"] { background: var(--c-n); } .row select.sh[data-c="d"] { background: var(--c-d); }
+.row select.dt[data-v="OT"] { background: var(--c-ot); font-weight: 600; }
+.row select.dt[data-v="OFF"] { color: var(--muted); }
+.rows { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+@media (max-width: 820px) {
+  .rowhead { display: none; }
+  .row { grid-template-columns: 1fr 1fr; grid-template-areas: "date tot" "dt sh" "hrs note"; gap: 6px 8px; padding: 10px 12px; }
+  .row .dcell { grid-area: date; } .row .tot { grid-area: tot; font-size: 16px; }
+  .row .dt { grid-area: dt; } .row .sh { grid-area: sh; } .row .hrs { grid-area: hrs; } .row .note { grid-area: note; }
+  .row .pay { display: none; }
+  .exrow { grid-template-columns: 1fr 80px; }
+  .exrow .calc { grid-column: 1; text-align: left; } .exrow .amt { grid-column: 2; }
+  .exrow.o { grid-template-columns: 1fr 110px 38px; }
+}
+
+/* rates */
+.rrow { display: grid; grid-template-columns: 120px minmax(120px, 1.4fr) 120px 110px 38px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.rrow.h { font-size: 12.5px; font-weight: 600; color: var(--ink2); border-bottom-color: var(--axis); }
+.rrow.ref { grid-template-columns: minmax(120px, 1fr) 130px 38px; }
+.field { display: grid; grid-template-columns: minmax(150px, 1fr) 130px; gap: 8px; align-items: center; padding: 6px 0; }
+.field small { grid-column: 1 / -1; color: var(--ink2); font-size: 12.5px; }
+@media (max-width: 700px) {
+  .rrow { grid-template-columns: 1fr 1fr 38px; grid-template-areas: "d s s" "t r x"; padding: 10px 0; }
+  .rrow.h { display: none; }
+  .rrow > :nth-child(1) { grid-area: d; } .rrow > :nth-child(2) { grid-area: s; } .rrow > :nth-child(3) { grid-area: t; } .rrow > :nth-child(4) { grid-area: r; } .rrow > :nth-child(5) { grid-area: x; }
+  .rrow.ref { grid-template-columns: 1fr 100px 38px; grid-template-areas: none; }
+  .rrow.ref > * { grid-area: auto !important; justify-self: stretch !important; }
+}
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); }
+.skel { height: 120px; border-radius: 10px; background: var(--field); }
+@media (prefers-reduced-motion: no-preference) { .row.hl { transition: background .6s; } }
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>ตารางเวร</b><span>ค่าเวรพยาบาล</span></div>
+    <div class="tools">
+      <div class="sync" id="sync"><i></i><span>กำลังเชื่อมต่อ</span></div>
+      <button class="themebtn" id="theme" type="button"></button>
+    </div>
+  </div>
+  <div class="wrap">
+    <nav class="tabs" role="tablist" aria-label="เมนู" id="tabs"></nav>
+  </div>
+</header>
+<main><div class="wrap" id="view"><div class="skel" aria-hidden="true"></div></div></main>
+<div id="toast" hidden role="status"></div>
+
+<script>
+(function () {
+'use strict';
+
+/* ───────────────────────── core (pure, no DOM) ───────────────────────── */
+// <core>
+var TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+var TH_MON_S = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+var TH_DOW = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+var WD = "วันธรรมดา", OT = "OT", OFF = "OFF";
+var DAYTYPES = [WD, OT, OFF];
+function pad(n) { return String(n).padStart(2, "0"); }
+function mkey(y, m) { return y + "-" + pad(m + 1); }
+function dim(y, m) { return new Date(y, m + 1, 0).getDate(); }
+function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+function classOf(shift) {
+  if (!shift) return "";
+  if (shift.indexOf("ควบ") >= 0) return "d";
+  if (shift.indexOf("เช้า") >= 0) return "m";
+  if (shift.indexOf("บ่าย") >= 0) return "a";
+  if (shift.indexOf("ดึก") >= 0) return "n";
+  return "o";
+}
+function codeOf(shift) {
+  if (!shift) return "";
+  if (shift.indexOf("ชบ/ชด") >= 0) return "ชบ/ชด";
+  if (shift.indexOf("ดบ") >= 0) return "ดบ";
+  if (shift.indexOf("เช้า") >= 0) return "ช";
+  if (shift.indexOf("บ่าย") >= 0) return "บ";
+  if (shift.indexOf("ดึก") >= 0) return "ด";
+  return shift.replace(/^เวร/, "").slice(0, 3);
+}
+function shiftList(settings) {
+  var out = [];
+  ((settings && settings.rates) || []).forEach(function (r) { if (r.shift && out.indexOf(r.shift) < 0) out.push(r.shift); });
+  return out;
+}
+function rateIndex(settings) {
+  var idx = {};
+  ((settings && settings.rates) || []).forEach(function (r) { idx[r.shift + "|" + r.dayType] = num(r.rate); });
+  return idx;
+}
+function entryCalc(e, idx, hr) {
+  var rate = 0, missing = false;
+  if (e.shift && e.dayType && e.dayType !== OFF) {
+    var k = e.shift + "|" + e.dayType;
+    if (Object.prototype.hasOwnProperty.call(idx, k)) rate = idx[k]; else missing = true;
+  }
+  var hp = num(e.hours) * hr;
+  return { shiftPay: rate, hoursPay: hp, total: rate + hp, missing: missing };
+}
+function monthEntries(shiftsMap, key) {
+  var out = [];
+  shiftsMap.forEach(function (e) { if (e.date && e.date.indexOf(key + "-") === 0) out.push(e); });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (num(a.k) || 1) - (num(b.k) || 1); });
+  return out;
+}
+function summarize(entries, mdoc, settings) {
+  var shifts = shiftList(settings).slice();
+  var idx = rateIndex(settings), hr = num(settings && settings.extraHourRate);
+  var counts = { all: {}, WD: {}, OT: {} };
+  shifts.forEach(function (s) { counts.all[s] = 0; counts.WD[s] = 0; counts.OT[s] = 0; });
+  var hours = { all: 0, WD: 0, OT: 0 }, pay = { WD: 0, OT: 0 };
+  var parts = { wd: 0, ot: 0, hours: 0, refer: 0, oncall: 0, others: 0 };
+  var missing = 0, work = {};
+  entries.forEach(function (e) {
+    var c = entryCalc(e, idx, hr), h = num(e.hours);
+    if (e.shift) {
+      if (!(e.shift in counts.all)) { shifts.push(e.shift); counts.all[e.shift] = 0; counts.WD[e.shift] = 0; counts.OT[e.shift] = 0; }
+      counts.all[e.shift]++;
+      if (e.dayType === WD) counts.WD[e.shift]++;
+      if (e.dayType === OT) counts.OT[e.shift]++;
+      work[e.date] = 1;
+    }
+    hours.all += h;
+    if (e.dayType === WD) { hours.WD += h; pay.WD += c.total; parts.wd += c.shiftPay; }
+    if (e.dayType === OT) { hours.OT += h; pay.OT += c.total; parts.ot += c.shiftPay; }
+    parts.hours += c.hoursPay;
+    if (c.missing) missing++;
+  });
+  var referDetail = [];
+  ((settings && settings.referTypes) || []).forEach(function (t) {
+    var n = num(mdoc && mdoc.refer && mdoc.refer[t.id]), amt = n * num(t.rate);
+    parts.refer += amt; referDetail.push({ id: t.id, name: t.name, count: n, rate: num(t.rate), amount: amt });
+  });
+  var oncallCount = num(mdoc && mdoc.oncall);
+  parts.oncall = oncallCount * num(settings && settings.oncallRate);
+  var others = (mdoc && mdoc.others) || [];
+  others.forEach(function (o) { parts.others += num(o.amount); });
+  var total = parts.wd + parts.ot + parts.hours + parts.refer + parts.oncall + parts.others;
+  function sum(o) { var t = 0; shifts.forEach(function (s) { t += o[s]; }); return t; }
+  return {
+    shifts: shifts, counts: counts,
+    nShifts: { all: sum(counts.all), WD: sum(counts.WD), OT: sum(counts.OT) },
+    hours: hours, pay: { all: total, WD: pay.WD, OT: pay.OT }, parts: parts, total: total,
+    missing: missing, referDetail: referDetail, oncallCount: oncallCount, others: others,
+    workDays: Object.keys(work).length, hasData: entries.length > 0 || total > 0
+  };
+}
+// </core>
+
+/* ───────────────────────── small DOM helpers ───────────────────────── */
+var SVGNS = "http://www.w3.org/2000/svg";
+function h(tag, attrs) {
+  var el = document.createElement(tag);
+  if (attrs) Object.keys(attrs).forEach(function (k) {
+    var v = attrs[k];
+    if (v == null || v === false) return;
+    if (k === "class") el.className = v;
+    else if (k.slice(0, 2) === "on") el.addEventListener(k.slice(2), v);
+    else if (k === "value" || k === "disabled" || k === "checked" || k === "hidden") el[k] = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  });
+  for (var i = 2; i < arguments.length; i++) add(el, arguments[i]);
+  return el;
+}
+function add(el, kid) {
+  if (kid == null || kid === false) return;
+  if (Array.isArray(kid)) { kid.forEach(function (k) { add(el, k); }); return; }
+  el.appendChild(typeof kid === "string" || typeof kid === "number" ? document.createTextNode(String(kid)) : kid);
+}
+var nf0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+var nf2 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function money(v) { return (Math.abs(v * 100 % 100) < 0.5 ? nf0 : nf2).format(v); }
+function be(y) { return y + 543; }
+function monthTitle(y, m) { return TH_MONTHS[m] + " " + be(y); }
+function dayLabel(date) { var p = date.split("-"); return Number(p[2]) + " " + TH_MON_S[Number(p[1]) - 1]; }
+function niceScale(v) {
+  var steps = [500, 1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000, 100000];
+  for (var i = 0; i < steps.length; i++) {
+    var n = Math.max(1, Math.ceil(v / steps[i]));
+    if (n <= 5) return { top: n * steps[i], ticks: n };
+  }
+  return { top: Math.ceil(v / 100000) * 100000, ticks: 5 };
+}
+
+/* ───────────────────────── theme (day / night) ───────────────────────── */
+var THEME_KEY = "shiftpay.theme";
+var ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+var ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function effectiveTheme() {
+  var a = document.documentElement.getAttribute("data-theme");
+  if (a === "light" || a === "dark") return a;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function paintThemeBtn() {
+  var btn = document.getElementById("theme"); if (!btn) return;
+  var dark = effectiveTheme() === "dark";
+  btn.innerHTML = (dark ? ICON_MOON : ICON_SUN) + "<span>" + (dark ? "กลางคืน" : "กลางวัน") + "</span>";
+  btn.setAttribute("aria-label", dark ? "โหมดกลางคืน กดเพื่อเปลี่ยนเป็นกลางวัน" : "โหมดกลางวัน กดเพื่อเปลี่ยนเป็นกลางคืน");
+  btn.title = dark ? "เปลี่ยนเป็นโหมดกลางวัน" : "เปลี่ยนเป็นโหมดกลางคืน";
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", dark ? "#062a2c" : "#0b4f52");
+}
+function initTheme() {
+  var btn = document.getElementById("theme");
+  btn.addEventListener("click", function () {
+    var next = effectiveTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    paintThemeBtn();
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var onChange = function () { paintThemeBtn(); };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+  }
+  paintThemeBtn();
+}
+
+/* ───────────────────────── on-device storage (web-app mode) ───────────────────────── */
+// Used when the page is opened outside the artifact viewer (no shared database):
+// same interface as the database, kept in this browser's localStorage.
+var STORE_KEY = "shiftpay.data.v1";
+var DEFAULT_SETTINGS = {"rates": [{"id": "r1", "dayType": "วันธรรมดา", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 1015.5}, {"id": "r2", "dayType": "วันธรรมดา", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 1365.5}, {"id": "r3", "dayType": "วันธรรมดา", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 1365.5}, {"id": "r4", "dayType": "วันธรรมดา", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 2381.0}, {"id": "r5", "dayType": "วันธรรมดา", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 2731.0}, {"id": "r6", "dayType": "OT", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 700.0}, {"id": "r7", "dayType": "OT", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 700.0}, {"id": "r8", "dayType": "OT", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 700.0}, {"id": "r9", "dayType": "OT", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 1400.0}, {"id": "r10", "dayType": "OT", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 1400.0}], "extraHourRate": 87.5, "extraHourNote": "สมมติ = 700 ÷ 8 ชม. แก้ให้ตรงกับของจริง", "referTypes": [{"id": "ubon", "name": "อุบล", "rate": 700.0}, {"id": "amnat", "name": "อำนาจ", "rate": 350.0}], "oncallRate": 100.0};
+function makeLocalDb() {
+  var data = { shifts: {}, months: {}, settings: { rates: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) } };
+  var persisted = true, subs = [];
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      var p = JSON.parse(raw);
+      if (p && typeof p === "object") {
+        data.shifts = p.shifts || {}; data.months = p.months || {};
+        if (p.settings && p.settings.rates) data.settings = p.settings;
+      }
+    }
+    localStorage.setItem(STORE_KEY + ".probe", "1"); localStorage.removeItem(STORE_KEY + ".probe");
+  } catch (e) { persisted = false; }
+  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { persisted = false; } }
+  function notify(col, id) {
+    subs.slice().forEach(function (s) { if (s.col === col && (s.id === null || s.id === id)) s.fire(); });
+  }
+  function split(path) { var i = path.indexOf("/"); return [path.slice(0, i), path.slice(i + 1)]; }
+  function sub(col, id, make, cb) {
+    var s = { col: col, id: id, fire: function () { cb(make()); } };
+    subs.push(s); setTimeout(s.fire, 0);
+    return function () { subs = subs.filter(function (x) { return x !== s; }); };
+  }
+  return {
+    isDevice: true,
+    persisted: function () { return persisted; },
+    exportAll: function () { return JSON.stringify({ app: "shiftpay", version: 1, exportedAt: new Date().toISOString(), shifts: data.shifts, months: data.months, settings: data.settings }, null, 2); },
+    importAll: function (txt) {
+      var o = JSON.parse(txt);
+      if (!o || typeof o !== "object" || typeof o.shifts !== "object" || typeof o.months !== "object" || !o.settings || !o.settings.rates) throw new Error("bad-format");
+      data = { shifts: o.shifts, months: o.months, settings: o.settings };
+      save(); ["shifts", "months", "settings"].forEach(function (c) { notify(c, null); subs.forEach(function (s) { if (s.col === c) s.fire(); }); });
+    },
+    collection: function (col) {
+      return { onSnapshot: function (cb) {
+        return sub(col, null, function () {
+          return { docs: Object.keys(data[col] || {}).map(function (id) { var d = data[col][id]; return { id: id, data: function () { return d; } }; }) };
+        }, cb);
+      } };
+    },
+    doc: function (path) {
+      var pr = split(path), col = pr[0], id = pr[1];
+      return {
+        onSnapshot: function (cb) {
+          return sub(col, id, function () { var d = (data[col] || {})[id]; return { exists: d !== undefined, data: function () { return d; } }; }, cb);
+        },
+        set: function (d) { data[col] = data[col] || {}; data[col][id] = JSON.parse(JSON.stringify(d)); save(); notify(col, id); return Promise.resolve(); },
+        delete: function () { if (data[col]) delete data[col][id]; save(); notify(col, id); return Promise.resolve(); }
+      };
+    }
+  };
+}
+
+/* ───────────────────────── state & store ───────────────────────── */
+var now = new Date();
+var state = {
+  tab: "summary", sel: { y: now.getFullYear(), m: now.getMonth() }, year: now.getFullYear(),
+  shifts: new Map(), months: new Map(), settings: null,
+  ready: { shifts: false, months: false, settings: false },
+  db: null, readOnly: false, mode: "connecting", extraRows: new Set(), jump: null
+};
+var queues = new Map();
+function enqueue(key, fn) {
+  var p = (queues.get(key) || Promise.resolve()).catch(function () {}).then(fn);
+  queues.set(key, p); return p;
+}
+function toast(msg) {
+  var t = document.getElementById("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 3800);
+}
+function dbWrite(path, data) {
+  if (!state.db) return Promise.resolve();
+  return enqueue(path, function () {
+    var ref = state.db.doc(path);
+    return data === null ? ref.delete() : ref.set(data);
+  }).catch(function (err) {
+    toast("บันทึกไม่สำเร็จ (" + ((err && err.code) || "error") + ")");
+    if (err && err.code === "invalid_argument") { state.readOnly = true; renderAll(); }
+  });
+}
+function entryId(date, k) { return date + "_" + k; }
+function getEntry(date, k) {
+  return state.shifts.get(entryId(date, k)) || { date: date, k: k, dayType: "", shift: "", hours: 0, note: "" };
+}
+function saveEntry(e) {
+  var id = entryId(e.date, e.k);
+  var data = { date: e.date, k: e.k, dayType: e.dayType || "", shift: e.shift || "", hours: num(e.hours), note: e.note || "" };
+  var empty = !data.dayType && !data.shift && !data.hours && !data.note;
+  if (empty) { state.shifts.delete(id); return dbWrite("shifts/" + id, null); }
+  state.shifts.set(id, data); return dbWrite("shifts/" + id, data);
+}
+function removeEntry(date, k) {
+  state.shifts.delete(entryId(date, k)); state.extraRows.delete(entryId(date, k));
+  return dbWrite("shifts/" + entryId(date, k), null);
+}
+function saveMonth(key, doc) { state.months.set(key, doc); return dbWrite("months/" + key, doc); }
+function saveSettings(obj) { state.settings = obj; return dbWrite("settings/rates", obj); }
+function curSettings() { return state.settings || { rates: [], extraHourRate: 0, referTypes: [], oncallRate: 0 }; }
+function monthSummary(y, m) {
+  var key = mkey(y, m);
+  return summarize(monthEntries(state.shifts, key), state.months.get(key), state.settings);
+}
+function newId() { return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+/* ───────────────────────── shell: tabs, sync badge ───────────────────────── */
+var TABS = [["summary", "สรุปเดือน"], ["log", "บันทึกเวร"], ["year", "ทุกเดือน"], ["rates", "ตั้งค่าเรท"]];
+function renderTabs() {
+  var nav = document.getElementById("tabs"); nav.textContent = "";
+  TABS.forEach(function (t) {
+    nav.appendChild(h("button", { role: "tab", "aria-selected": String(state.tab === t[0]), onclick: function () { go(t[0]); } }, t[1]));
+  });
+}
+function renderSync() {
+  var el = document.getElementById("sync");
+  var txt = state.mode === "ok" ? (state.readOnly ? "ดูอย่างเดียว" : "บันทึกอัตโนมัติ") : state.mode === "device" ? "บันทึกในเครื่องนี้" : state.mode === "local" ? "ไม่บันทึกข้อมูล" : "กำลังเชื่อมต่อ";
+  el.className = "sync " + ((state.mode === "ok" && !state.readOnly) || state.mode === "device" ? "ok" : state.mode === "connecting" ? "" : "off");
+  el.lastChild.textContent = txt;
+}
+function go(tab, opts) {
+  state.tab = tab;
+  try { history.replaceState(null, "", "#" + tab); } catch (e) {}
+  renderAll();
+  if (!opts || !opts.keepScroll) window.scrollTo(0, 0);
+}
+
+/* ───────────────────────── shared pieces ───────────────────────── */
+function monthNav() {
+  var s = state.sel;
+  function step(d) {
+    var dt = new Date(s.y, s.m + d, 1); state.sel = { y: dt.getFullYear(), m: dt.getMonth() }; renderAll();
+  }
+  var isNow = s.y === now.getFullYear() && s.m === now.getMonth();
+  return h("div", { class: "toolbar" },
+    h("button", { class: "btn icon", "aria-label": "เดือนก่อน", onclick: function () { step(-1); } }, "‹"),
+    h("h1", null, monthTitle(s.y, s.m)),
+    h("button", { class: "btn icon", "aria-label": "เดือนถัดไป", onclick: function () { step(1); } }, "›"),
+    h("button", { class: "btn", disabled: isNow, onclick: function () { state.sel = { y: now.getFullYear(), m: now.getMonth() }; renderAll(); } }, "เดือนนี้"));
+}
+function noRatesNotice() {
+  if (state.settings && state.settings.rates && state.settings.rates.length) return null;
+  return h("div", { class: "notice warn" }, h("b", null, "ยังไม่ได้ตั้งเรทค่าเวร "),
+    "ค่าเวรจะเป็น 0 จนกว่าจะมีเรท ", h("button", { class: "link", onclick: function () { go("rates"); } }, "ไปตั้งค่าเรท"));
+}
+var PARTS = [
+  ["wd", "ค่าเวรวันธรรมดา", "--s1"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
+  ["refer", "Refer", "--s4"], ["oncall", "Oncall", "--s5"], ["others", "รายได้อื่นๆ", "--s6"]
+];
+function chip(e) {
+  var parts = [];
+  if (e.shift) parts.push(h("span", { class: "chip " + classOf(e.shift), title: e.shift }, codeOf(e.shift)));
+  if (e.dayType === OT) parts.push(h("span", { class: "chip ot" }, "OT"));
+  if (e.dayType === OFF) parts.push(h("span", { class: "chip off" }, "OFF"));
+  if (num(e.hours) > 0 && !e.shift) parts.push(h("span", { class: "chip" }, "+" + num(e.hours), h("span", { class: "u" }, " ชม.")));
+  return parts;
+}
+
+/* ───────────────────────── summary tab ───────────────────────── */
+function renderSummary(root) {
+  var y = state.sel.y, m = state.sel.m, key = mkey(y, m), n = dim(y, m);
+  var S = monthSummary(y, m), set = curSettings();
+  var pm = new Date(y, m - 1, 1), prev = monthSummary(pm.getFullYear(), pm.getMonth());
+  root.appendChild(monthNav());
+  var stack = h("div", { class: "stack" }); root.appendChild(stack);
+  var nr = noRatesNotice(); if (nr) stack.appendChild(nr);
+  if (!S.hasData) stack.appendChild(h("div", { class: "notice" }, h("b", null, "ยังไม่มีบันทึกเวรของเดือนนี้ "),
+    h("button", { class: "link", onclick: function () { go("log"); } }, "ไปบันทึกเวร")));
+
+  // hero
+  var whole = Math.floor(S.total), frac = Math.round((S.total - whole) * 100);
+  var delta = null;
+  if (prev.hasData && prev.total > 0 && S.hasData) {
+    var d = S.total - prev.total;
+    delta = h("div", { class: "delta" }, "เทียบเดือนก่อน (" + TH_MON_S[pm.getMonth()] + ")",
+      h("b", { class: d >= 0 ? "up num" : "num" }, (d >= 0 ? "▲ +" : "▼ −") + money(Math.abs(d)) + " บาท"));
+  }
+  stack.appendChild(h("div", { class: "card hero" },
+    h("div", null,
+      h("div", { class: "lab" }, "รายได้รวม " + monthTitle(y, m)),
+      h("div", { class: "big num" }, "฿" + nf0.format(whole), frac ? h("small", null, "." + pad(frac)) : null),
+      h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · ชั่วโมงเสริม " + S.hours.all + " ชม.")),
+    delta));
+
+  // composition
+  var bar = h("div", { class: "pbar", role: "img", "aria-label": "สัดส่วนรายได้" });
+  var legend = h("ul", { class: "legend" });
+  PARTS.forEach(function (p) {
+    var v = S.parts[p[0]], pct = S.total > 0 ? v / S.total * 100 : 0;
+    if (v > 0) bar.appendChild(h("span", { style: "width:" + pct + "%;background:var(" + p[2] + ")", title: p[1] + " " + money(v) }));
+    legend.appendChild(h("li", { class: v > 0 ? "" : "zero" }, h("span", { class: "sw", style: "background:var(" + p[2] + ")" }),
+      p[1], h("span", { class: "num" }, money(v)), h("span", { class: "pc num" }, v > 0 ? pct.toFixed(1) + "%" : "–")));
+  });
+  if (!bar.childNodes.length) bar.appendChild(h("span", { style: "width:100%;background:transparent" }));
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้มาจากไหน", h("small", null, "บาท · สัดส่วน")), bar, legend));
+
+  // table that mirrors the sheet's summary block
+  var head = h("tr", null, h("th", null, "ประเภทวัน"));
+  S.shifts.forEach(function (s) { head.appendChild(h("th", null, s)); });
+  head.appendChild(h("th", null, "รวมเวร")); head.appendChild(h("th", null, "ชั่วโมงเสริม (ชม.)")); head.appendChild(h("th", null, "ค่าตอบแทน (บาท)"));
+  var tbody = h("tbody");
+  [["all", "ทั้งหมด", "tot"], ["WD", WD, ""], ["OT", OT, ""]].forEach(function (r) {
+    var tr = h("tr", { class: r[2] }, h("td", null, r[1]));
+    S.shifts.forEach(function (s) { tr.appendChild(h("td", null, String(S.counts[r[0]][s]))); });
+    tr.appendChild(h("td", null, String(S.nShifts[r[0]])));
+    tr.appendChild(h("td", null, String(S.hours[r[0]])));
+    tr.appendChild(h("td", null, nf2.format(S.pay[r[0]])));
+    tbody.appendChild(tr);
+  });
+  stack.appendChild(h("div", { class: "card" },
+    h("h2", null, "จำนวนเวร", h("small", null, "ใช้เทียบกับตารางเวรของหอผู้ป่วย")),
+    h("div", { class: "scroll" }, h("table", null, h("thead", null, head), tbody)),
+    h("p", { class: "tnote" }, "แถว “ทั้งหมด” ในช่องค่าตอบแทนรวม Refer, Oncall, รายได้อื่นๆ และชั่วโมงเสริมของวัน OFF ด้วย")));
+
+  // calendar
+  var cal = h("div", { class: "cal" });
+  TH_DOW.forEach(function (d, i) { cal.appendChild(h("div", { class: "dow" + (i === 0 || i === 6 ? " we" : "") }, d)); });
+  var first = new Date(y, m, 1).getDay();
+  for (var i = 0; i < first; i++) cal.appendChild(h("div", { class: "blank" }));
+  var idx = rateIndex(set), hr = num(set.extraHourRate);
+  var dayPay = [];
+  for (var d = 1; d <= n; d++) {
+    (function (d) {
+      var date = key + "-" + pad(d), list = monthEntries(state.shifts, key).filter(function (e) { return e.date === date; });
+      var total = 0, desc = [];
+      list.forEach(function (e) { total += entryCalc(e, idx, hr).total; desc.push([e.shift, e.dayType].filter(Boolean).join(" ")); });
+      var dw = new Date(y, m, d).getDay(), we = dw === 0 || dw === 6;
+      var isToday = y === now.getFullYear() && m === now.getMonth() && d === now.getDate();
+      var label = d + " " + TH_MONTHS[m] + (desc.length ? ": " + desc.join(", ") + " " + money(total) + " บาท" : ": ไม่มีบันทึก");
+      cal.appendChild(h("button", { class: "cell" + (isToday ? " today" : ""), "aria-label": label, title: label, onclick: function () { state.jump = date; go("log"); } },
+        h("span", { class: "dn" + (we ? " we" : "") }, String(d)),
+        h("span", { class: "chips" }, list.map(chip)),
+        total > 0 ? h("span", { class: "amt num" }, money(total)) : null));
+    })(d);
+  }
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "ปฏิทินเวร", h("small", null, "แตะวันที่เพื่อแก้ไข")), cal,
+    h("div", { class: "inline-legend" },
+      [["m", "ช เช้า"], ["a", "บ บ่าย"], ["n", "ด ดึก"], ["d", "ควบ (ชบ/ชด/ดบ)"]].map(function (l) { return h("span", null, h("i", { style: "background:var(--c-" + l[0] + ")" }), l[1]); }))));
+
+  // daily chart
+  var days = [];
+  for (var dd = 1; dd <= n; dd++) {
+    var date2 = key + "-" + pad(dd), segs = [], lines = [];
+    monthEntries(state.shifts, key).filter(function (e) { return e.date === date2; }).forEach(function (e) {
+      var c = entryCalc(e, idx, hr);
+      if (c.shiftPay > 0) segs.push({ v: c.shiftPay, c: e.dayType === OT ? "--s2" : "--s1" });
+      if (c.hoursPay > 0) segs.push({ v: c.hoursPay, c: "--s3" });
+      lines.push([e.shift || e.dayType, e.dayType === OT && e.shift ? "OT" : "", num(e.hours) ? "+" + num(e.hours) + " ชม." : ""].filter(Boolean).join(" ") + " " + money(c.total));
+    });
+    days.push({ label: String(dd), title: dd + " " + TH_MON_S[m], segs: segs, lines: lines });
+  }
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้รายวัน", h("small", null, "บาท")), barChart(days, function (i) { return i === 0 || (i + 1) % 5 === 0; }),
+    h("div", { class: "inline-legend" },
+      [["--s1", "ค่าเวรวันธรรมดา"], ["--s2", "ค่าเวร OT"], ["--s3", "ชั่วโมงเสริม"]].map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[0] + ")" }), l[1]); }))));
+  void S;
+}
+
+/* generic stacked-bar chart built from divs; cols = [{label,title,segs:[{v,c}],lines:[]}] */
+function barChart(cols, majorFn) {
+  var max = 0;
+  cols.forEach(function (c) { var t = 0; c.segs.forEach(function (s) { t += s.v; }); c.total = t; if (t > max) max = t; });
+  var sc = niceScale(max), top = sc.top, ticks = sc.ticks, wrap = h("div", { class: "chart" });
+  var yax = h("div", { class: "yax" });
+  for (var i = 0; i <= ticks; i++) yax.appendChild(h("span", { style: "bottom:" + (i / ticks * 100) + "%" }, nf0.format(top / ticks * i)));
+  var plot = h("div", { class: "plot" });
+  for (var j = 1; j <= ticks; j++) plot.appendChild(h("div", { class: "gl", style: "bottom:" + (j / ticks * 100) + "%" }));
+  var grid = "grid-template-columns:repeat(" + cols.length + ",minmax(0,1fr))";
+  var colsEl = h("div", { class: "cols", style: grid });
+  var tip = h("div", { class: "tip", hidden: true });
+  function show(el, c) {
+    tip.textContent = ""; tip.appendChild(h("b", null, c.title));
+    (c.lines.length ? c.lines : [c.total > 0 ? money(c.total) + " บาท" : "ไม่มีรายได้"]).forEach(function (l) { tip.appendChild(h("div", null, l)); });
+    if (c.lines.length > 1 || c.segs.length > 1) tip.appendChild(h("div", null, "รวม " + money(c.total)));
+    tip.hidden = false;
+    var pr = plot.getBoundingClientRect(), er = el.getBoundingClientRect();
+    var x = er.left - pr.left + er.width / 2 - tip.offsetWidth / 2;
+    x = Math.max(0, Math.min(x, pr.width - tip.offsetWidth));
+    tip.style.left = x + "px"; tip.style.top = "-6px"; tip.style.transform = "translateY(-100%)";
+  }
+  cols.forEach(function (c) {
+    var bar = h("div", { class: "stackbar", style: "height:" + (top ? c.total / top * 100 : 0) + "%" });
+    c.segs.forEach(function (s) { bar.appendChild(h("div", { class: "seg", style: "height:" + (c.total ? s.v / c.total * 100 : 0) + "%;background:var(" + s.c + ")" })); });
+    var col = h("button", { class: "col", type: "button", "aria-label": c.title + (c.total ? " " + money(c.total) + " บาท" : " ไม่มีรายได้"),
+      onpointerenter: function () { show(col, c); }, onpointerdown: function () { show(col, c); }, onfocus: function () { show(col, c); },
+      onpointerleave: function () { tip.hidden = true; }, onblur: function () { tip.hidden = true; } }, bar);
+    colsEl.appendChild(col);
+  });
+  plot.appendChild(colsEl);
+  var xax = h("div", { class: "xax", style: grid });
+  cols.forEach(function (c, i) { xax.appendChild(h("span", { class: majorFn(i) ? "" : "minor" }, c.label)); });
+  wrap.appendChild(yax); wrap.appendChild(h("div", { style: "position:relative;min-width:0" }, plot, tip)); wrap.appendChild(xax);
+  return wrap;
+}
+
+/* ───────────────────────── log tab ───────────────────────── */
+var rowEls = [];
+function renderLog(root) {
+  var y = state.sel.y, m = state.sel.m, key = mkey(y, m), n = dim(y, m), set = curSettings();
+  var ro = state.readOnly;
+  root.appendChild(monthNav());
+  var stack = h("div", { class: "stack" }); root.appendChild(stack);
+  var nr = noRatesNotice(); if (nr) stack.appendChild(nr);
+  if (ro) stack.appendChild(h("div", { class: "notice warn" }, h("b", null, "ดูอย่างเดียว "), "บัญชีนี้แก้ไขข้อมูลไม่ได้"));
+
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "สรุปเดือนนี้"), h("div", { id: "logTotal", class: "exsum" })));
+  stack.appendChild(extrasCard(key, ro));
+
+  var shifts = shiftList(set);
+  var rows = h("div", { class: "rows" });
+  rows.appendChild(h("div", { class: "rowhead" }, h("div", null, "วันที่"), h("div", null, "ประเภทวัน"), h("div", null, "เวรที่ทำ"),
+    h("div", { class: "r" }, "ค่าเวร (บาท)"), h("div", { class: "r" }, "ชั่วโมงเสริม"), h("div", { class: "r" }, "รวมรายวัน"), h("div", null, "หมายเหตุ")));
+  rowEls = [];
+  for (var d = 1; d <= n; d++) {
+    var date = key + "-" + pad(d);
+    var ks = [];
+    monthEntries(state.shifts, key).forEach(function (e) { if (e.date === date) ks.push(num(e.k) || 1); });
+    state.extraRows.forEach(function (id) { if (id.indexOf(date + "_") === 0) { var k = Number(id.split("_")[1]); if (ks.indexOf(k) < 0) ks.push(k); } });
+    if (!ks.length) ks.push(1);
+    ks.sort(function (a, b) { return a - b; });
+    ks.forEach(function (k, i) { var r = buildRow(date, k, i === 0, i === ks.length - 1, shifts, ro); rowEls.push(r); rows.appendChild(r); });
+  }
+  stack.appendChild(h("div", null, h("div", { class: "card-h", style: "margin-bottom:8px" }, "บันทึกรายวัน", h("small", null, "เลือกประเภทวันและเวร ค่าเวรคำนวณให้เอง")), rows));
+  refreshLog();
+  if (state.jump) {
+    var target = rowEls.filter(function (r) { return r.dataset.date === state.jump; })[0];
+    state.jump = null;
+    if (target) requestAnimationFrame(function () { target.scrollIntoView({ block: "center" }); target.classList.add("hl"); setTimeout(function () { target.classList.remove("hl"); }, 1600); });
+  }
+}
+function buildRow(date, k, first, last, shifts, ro) {
+  var dnum = Number(date.slice(8)), dw = new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, dnum).getDay();
+  var we = dw === 0 || dw === 6;
+  var dt = h("select", { class: "dt", "aria-label": "ประเภทวัน " + dnum, disabled: ro });
+  dt.appendChild(h("option", { value: "" }, "ประเภทวัน"));
+  DAYTYPES.forEach(function (t) { dt.appendChild(h("option", { value: t }, t)); });
+  var sh = h("select", { class: "sh", "aria-label": "เวรที่ทำ " + dnum, disabled: ro });
+  var hrs = h("input", { type: "number", class: "hrs", min: "0", step: "0.5", inputmode: "decimal", placeholder: "ชม.", "aria-label": "ชั่วโมงเสริม " + dnum, list: "hrlist", disabled: ro });
+  var note = h("input", { type: "text", class: "note", placeholder: "หมายเหตุ", "aria-label": "หมายเหตุ " + dnum, disabled: ro });
+  var pay = h("div", { class: "pay" }), tot = h("div", { class: "tot" });
+  var addBtn = h("button", { class: "mini", type: "button", title: "เพิ่มรายการในวันเดียวกัน", "aria-label": "เพิ่มรายการในวันที่ " + dnum, disabled: ro });
+  var delBtn = h("button", { class: "mini", type: "button", title: "ลบรายการนี้", "aria-label": "ลบรายการวันที่ " + dnum }, "×");
+  var row = h("div", { class: "row" + (we ? " we" : ""), "data-date": date, "data-k": String(k) },
+    h("div", { class: "dcell" },
+      first ? h("span", { class: "dnum" }, String(dnum)) : h("span", { class: "dnum" }, "↳"),
+      first ? h("span", { class: "dow" }, TH_DOW[dw]) : h("span", { class: "dow" }), addBtn, k > 1 ? delBtn : null),
+    dt, sh, pay, hrs, tot, note);
+  row._c = { dt: dt, sh: sh, hrs: hrs, note: note, pay: pay, tot: tot, add: addBtn, last: last, shifts: shifts };
+  function cur() { return Object.assign({}, getEntry(date, k)); }
+  function commit(e) { saveEntry(e); syncRow(row); refreshLog(); }
+  dt.addEventListener("change", function () { var e = cur(); e.dayType = dt.value; if (e.dayType === OFF) e.shift = ""; commit(e); });
+  sh.addEventListener("change", function () { var e = cur(); e.shift = sh.value; commit(e); });
+  hrs.addEventListener("change", function () { var e = cur(); e.hours = Math.max(0, num(hrs.value)); commit(e); });
+  note.addEventListener("change", function () { var e = cur(); e.note = note.value.trim(); commit(e); });
+  addBtn.addEventListener("click", function () { state.extraRows.add(entryId(date, k + 1)); renderAll(); });
+  delBtn.addEventListener("click", function () { removeEntry(date, k); renderAll(); });
+  syncRow(row);
+  return row;
+}
+function syncRow(row) {
+  var c = row._c, date = row.dataset.date, k = Number(row.dataset.k), e = getEntry(date, k), set = curSettings();
+  var list = c.shifts.slice(); if (e.shift && list.indexOf(e.shift) < 0) list.push(e.shift);
+  var sig = list.join("|");
+  if (c.sh.dataset.sig !== sig) {
+    c.sh.textContent = ""; c.sh.appendChild(h("option", { value: "" }, "เวรที่ทำ"));
+    list.forEach(function (s) { c.sh.appendChild(h("option", { value: s }, s)); });
+    c.sh.dataset.sig = sig;
+  }
+  var calc = entryCalc(e, rateIndex(set), num(set.extraHourRate));
+  c.dt.value = e.dayType || ""; c.dt.dataset.v = e.dayType || "";
+  c.sh.value = e.shift || ""; c.sh.dataset.c = classOf(e.shift);
+  c.sh.disabled = state.readOnly || e.dayType === OFF;
+  if (document.activeElement !== c.hrs) c.hrs.value = num(e.hours) ? String(num(e.hours)) : "";
+  if (document.activeElement !== c.note) c.note.value = e.note || "";
+  var filled = !!(e.dayType || e.shift || num(e.hours) || e.note);
+  c.pay.className = "pay num" + (calc.missing ? " bad" : "");
+  c.pay.textContent = calc.missing ? "ไม่พบเรท" : (e.shift && e.dayType !== OFF ? money(calc.shiftPay) : "");
+  c.tot.textContent = filled && (calc.total > 0 || e.shift) ? money(calc.total) : "";
+  c.add.textContent = "+"; c.add.hidden = !(c.last && filled);
+}
+function refreshLog() {
+  rowEls.forEach(syncRow);
+  var S = monthSummary(state.sel.y, state.sel.m), el = document.getElementById("logTotal");
+  if (!el) return;
+  el.textContent = "";
+  el.appendChild(h("span", null, S.nShifts.all + " เวร · ชั่วโมงเสริม " + S.hours.all + " ชม."));
+  el.appendChild(h("span", { class: "num" }, "฿" + money(S.total)));
+}
+function extrasCard(key, ro) {
+  var set = curSettings(), md = state.months.get(key) || {};
+  var card = h("div", { class: "card" }, h("h2", null, "Refer · Oncall · รายได้อื่นๆ", h("small", null, "ของเดือนนี้")));
+  var box = h("div", { class: "extras" }); card.appendChild(box);
+  function doc() { return { refer: Object.assign({}, md.refer || {}), oncall: num(md.oncall), others: (md.others || []).map(function (o) { return { label: o.label, amount: num(o.amount) }; }) }; }
+  function persist(d) { md = d; saveMonth(key, d); updateSum(); }
+  var sum = h("div", { class: "exsum" });
+  function updateSum() {
+    var S = summarize([], md, state.settings), t = S.parts.refer + S.parts.oncall + S.parts.others;
+    sum.textContent = ""; sum.appendChild(h("span", null, "รวมรายได้เสริม")); sum.appendChild(h("span", { class: "num" }, "฿" + money(t)));
+    refreshLog();
+  }
+  (set.referTypes || []).forEach(function (t) {
+    var amt = h("div", { class: "amt num" });
+    var inp = h("input", { type: "number", min: "0", step: "1", inputmode: "numeric", "aria-label": "จำนวน Refer " + t.name, disabled: ro, value: num(md.refer && md.refer[t.id]) ? String(num(md.refer[t.id])) : "" });
+    function upd() { amt.textContent = money(num(inp.value) * num(t.rate)); }
+    inp.addEventListener("input", upd);
+    inp.addEventListener("change", function () { var d = doc(); d.refer[t.id] = Math.max(0, Math.round(num(inp.value))); persist(d); });
+    upd();
+    box.appendChild(h("div", { class: "exrow" }, h("span", null, "Refer " + t.name), inp, h("span", { class: "calc num" }, "× " + money(num(t.rate))), amt));
+  });
+  var oAmt = h("div", { class: "amt num" });
+  var oIn = h("input", { type: "number", min: "0", step: "1", inputmode: "numeric", "aria-label": "จำนวน Oncall", disabled: ro, value: num(md.oncall) ? String(num(md.oncall)) : "" });
+  function oUpd() { oAmt.textContent = money(num(oIn.value) * num(set.oncallRate)); }
+  oIn.addEventListener("input", oUpd);
+  oIn.addEventListener("change", function () { var d = doc(); d.oncall = Math.max(0, Math.round(num(oIn.value))); persist(d); });
+  oUpd();
+  box.appendChild(h("div", { class: "exrow" }, h("span", null, "Oncall"), oIn, h("span", { class: "calc num" }, "× " + money(num(set.oncallRate))), oAmt));
+
+  var others = h("div", { class: "extras" });
+  function drawOthers() {
+    others.textContent = "";
+    (md.others || []).forEach(function (o, i) {
+      var lab = h("input", { type: "text", placeholder: "รายการ เช่น ใบประกอบ", "aria-label": "ชื่อรายได้อื่น " + (i + 1), disabled: ro, value: o.label || "" });
+      var am = h("input", { type: "number", step: "any", inputmode: "decimal", placeholder: "บาท", "aria-label": "จำนวนเงิน " + (i + 1), disabled: ro, value: num(o.amount) ? String(num(o.amount)) : "" });
+      lab.addEventListener("change", function () { var d = doc(); d.others[i].label = lab.value.trim(); persist(d); });
+      am.addEventListener("change", function () { var d = doc(); d.others[i].amount = num(am.value); persist(d); });
+      var del = h("button", { class: "btn icon", type: "button", "aria-label": "ลบรายการ", disabled: ro, onclick: function () { var d = doc(); d.others.splice(i, 1); persist(d); drawOthers(); } }, "×");
+      others.appendChild(h("div", { class: "exrow o" }, lab, am, del));
+    });
+    others.appendChild(h("div", null, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () { var d = doc(); d.others.push({ label: "", amount: 0 }); md = d; drawOthers(); } }, "+ เพิ่มรายได้อื่นๆ")));
+  }
+  drawOthers();
+  box.appendChild(h("div", { class: "sub", style: "margin-top:6px" }, "รายได้อื่นๆ"));
+  box.appendChild(others); box.appendChild(sum);
+  updateSum();
+  return card;
+}
+
+/* ───────────────────────── all-months tab ───────────────────────── */
+function renderYear(root) {
+  var y = state.year, set = curSettings();
+  root.appendChild(h("div", { class: "toolbar" },
+    h("button", { class: "btn icon", "aria-label": "ปีก่อน", onclick: function () { state.year--; renderAll(); } }, "‹"),
+    h("h1", null, "ปี " + be(y)),
+    h("button", { class: "btn icon", "aria-label": "ปีถัดไป", onclick: function () { state.year++; renderAll(); } }, "›")));
+  var stack = h("div", { class: "stack" }); root.appendChild(stack);
+  var nr = noRatesNotice(); if (nr) stack.appendChild(nr);
+  var sums = [], tot = { total: 0, shifts: 0, hours: 0, m: 0, a: 0, n: 0, d: 0 };
+  for (var m = 0; m < 12; m++) {
+    var S = monthSummary(y, m); sums.push(S);
+    tot.total += S.total; tot.shifts += S.nShifts.all; tot.hours += S.hours.all;
+    S.shifts.forEach(function (s) { var c = classOf(s); if (tot[c] != null) tot[c] += S.counts.all[s]; });
+  }
+  var cols = sums.map(function (S, i) {
+    var segs = [], lines = [];
+    PARTS.forEach(function (p) { if (S.parts[p[0]] > 0) { segs.push({ v: S.parts[p[0]], c: p[2] }); lines.push(p[1] + " " + money(S.parts[p[0]])); } });
+    return { label: TH_MON_S[i], title: TH_MONTHS[i] + " " + be(y), segs: segs, lines: lines };
+  });
+  var used = PARTS.filter(function (p) { return sums.some(function (S) { return S.parts[p[0]] > 0; }); });
+  stack.appendChild(h("div", { class: "card hero" },
+    h("div", null, h("div", { class: "lab" }, "รายได้รวมทั้งปี " + be(y)), h("div", { class: "big num" }, "฿" + money(tot.total)),
+      h("div", { class: "meta" }, tot.shifts + " เวร · ชั่วโมงเสริม " + tot.hours + " ชม."))));
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้แต่ละเดือน", h("small", null, "บาท")), barChart(cols, function () { return true; }),
+    h("div", { class: "inline-legend" }, used.map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[2] + ")" }), l[1]); }))));
+
+  var tb = h("tbody");
+  sums.forEach(function (S, i) {
+    var c = { m: 0, a: 0, n: 0, d: 0 };
+    S.shifts.forEach(function (s) { var k = classOf(s); if (c[k] != null) c[k] += S.counts.all[s]; });
+    var tr = h("tr", { class: "click" + (S.hasData ? "" : " empty"), tabindex: "0", role: "link", "aria-label": "ดูสรุป " + TH_MONTHS[i],
+      onclick: function () { state.sel = { y: y, m: i }; go("summary"); },
+      onkeydown: function (ev) { if (ev.key === "Enter") { state.sel = { y: y, m: i }; go("summary"); } } },
+      h("td", null, TH_MONTHS[i]),
+      h("td", null, S.hasData ? String(c.m) : "–"), h("td", null, S.hasData ? String(c.a) : "–"), h("td", null, S.hasData ? String(c.n) : "–"), h("td", null, S.hasData ? String(c.d) : "–"),
+      h("td", null, S.hasData ? String(S.nShifts.all) : "–"), h("td", null, S.hasData ? String(S.hours.all) : "–"),
+      h("td", null, S.hasData ? nf2.format(S.total) : "ยังไม่มีบันทึก"));
+    tb.appendChild(tr);
+  });
+  tb.appendChild(h("tr", { class: "tot" }, h("td", null, "รวมทั้งปี"), h("td", null, String(tot.m)), h("td", null, String(tot.a)), h("td", null, String(tot.n)), h("td", null, String(tot.d)),
+    h("td", null, String(tot.shifts)), h("td", null, String(tot.hours)), h("td", null, nf2.format(tot.total))));
+  stack.appendChild(h("div", { class: "card" }, h("h2", null, "สรุปแต่ละเดือน", h("small", null, "แตะเดือนเพื่อดูรายละเอียด")),
+    h("div", { class: "scroll" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "เดือน"), h("th", null, "เช้า"), h("th", null, "บ่าย"), h("th", null, "ดึก"), h("th", null, "ควบ"),
+      h("th", null, "รวมเวร"), h("th", null, "ชม.เสริม"), h("th", null, "รายได้รวม (บาท)"))), tb))));
+  void set;
+}
+
+/* ───────────────────────── rates tab ───────────────────────── */
+function renderRates(root) {
+  var ro = state.readOnly, set = JSON.parse(JSON.stringify(curSettings()));
+  if (!set.rates) set.rates = []; if (!set.referTypes) set.referTypes = [];
+  function persist() { saveSettings(set); }
+  root.appendChild(h("div", { class: "toolbar" }, h("h1", { style: "text-align:left;margin-left:0" }, "ตั้งค่าเรท")));
+  var stack = h("div", { class: "stack" }); root.appendChild(stack);
+  if (ro) stack.appendChild(h("div", { class: "notice warn" }, h("b", null, "ดูอย่างเดียว "), "บัญชีนี้แก้ไขเรทไม่ได้"));
+  if (!set.rates.length) stack.appendChild(h("div", { class: "notice" }, h("b", null, "ยังไม่มีเรทค่าเวร "), "กด “เพิ่มเรท” เพื่อเริ่มต้น ค่าเวรในบันทึกจะดึงจากตารางนี้ตามประเภทวันและเวร"));
+
+  // shift rates
+  var rc = h("div", { class: "card" }, h("h2", null, "เรทค่าเวร", h("small", null, "บาทต่อเวร")));
+  rc.appendChild(h("div", { class: "rrow h" }, h("span", null, "ประเภทวัน"), h("span", null, "เวรที่ทำ"), h("span", null, "ช่วงเวลา"), h("span", null, "เรท (บาท)"), h("span")));
+  set.rates.forEach(function (r, i) {
+    if (!r.id) r.id = "r" + i;
+    var dt = h("select", { "aria-label": "ประเภทวัน แถว " + (i + 1), disabled: ro });
+    [WD, OT].forEach(function (t) { dt.appendChild(h("option", { value: t }, t)); });
+    dt.value = r.dayType;
+    var sh = h("input", { type: "text", "aria-label": "ชื่อเวร แถว " + (i + 1), value: r.shift || "", disabled: ro });
+    var tm = h("input", { type: "text", "aria-label": "ช่วงเวลา แถว " + (i + 1), value: r.time || "", disabled: ro });
+    var rt = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท แถว " + (i + 1), value: String(num(r.rate)), disabled: ro });
+    var del = h("button", { class: "btn icon", type: "button", "aria-label": "ลบเรทแถว " + (i + 1), disabled: ro, onclick: function () { set.rates.splice(i, 1); persist(); renderAll(); } }, "×");
+    dt.addEventListener("change", function () { r.dayType = dt.value; persist(); });
+    sh.addEventListener("change", function () { r.shift = sh.value.trim(); persist(); });
+    tm.addEventListener("change", function () { r.time = tm.value.trim(); persist(); });
+    rt.addEventListener("change", function () { r.rate = num(rt.value); persist(); });
+    rc.appendChild(h("div", { class: "rrow" }, dt, sh, tm, rt, del));
+  });
+  rc.appendChild(h("div", { style: "margin-top:12px" }, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () {
+    set.rates.push({ id: newId(), dayType: WD, shift: "", time: "", rate: 0 }); persist(); renderAll(); } }, "+ เพิ่มเรท")));
+  rc.appendChild(h("p", { class: "tnote" }, "ชื่อเวรและประเภทวันต้องตรงกับที่เลือกในบันทึกเวร ระบบจับคู่จาก “เวร + ประเภทวัน” ถ้าไม่พบจะขึ้น “ไม่พบเรท” เรทที่แก้มีผลกับทุกเดือนที่บันทึกไว้"));
+  stack.appendChild(rc);
+
+  // other rates
+  var oc = h("div", { class: "card" }, h("h2", null, "เรทอื่นๆ"));
+  var hrIn = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรทชั่วโมงเสริม", value: String(num(set.extraHourRate)), disabled: ro });
+  hrIn.addEventListener("change", function () { set.extraHourRate = num(hrIn.value); persist(); });
+  oc.appendChild(h("div", { class: "field" }, h("span", null, "เรทชั่วโมงเสริม (บาท/ชม.)"), hrIn,
+    h("small", null, set.extraHourNote || "ใช้คูณกับชั่วโมงเสริมในบันทึกเวร")));
+  var ocIn = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท Oncall", value: String(num(set.oncallRate)), disabled: ro });
+  ocIn.addEventListener("change", function () { set.oncallRate = num(ocIn.value); persist(); });
+  oc.appendChild(h("div", { class: "field" }, h("span", null, "Oncall (บาท/ครั้ง)"), ocIn));
+  oc.appendChild(h("div", { class: "sub", style: "margin:12px 0 4px" }, "Refer (บาท/ครั้ง)"));
+  set.referTypes.forEach(function (t, i) {
+    var nm = h("input", { type: "text", "aria-label": "ชื่อ Refer " + (i + 1), value: t.name || "", disabled: ro });
+    var rt = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท Refer " + (i + 1), value: String(num(t.rate)), disabled: ro });
+    var del = h("button", { class: "btn icon", type: "button", "aria-label": "ลบ Refer " + (i + 1), disabled: ro, onclick: function () { set.referTypes.splice(i, 1); persist(); renderAll(); } }, "×");
+    nm.addEventListener("change", function () { t.name = nm.value.trim(); persist(); });
+    rt.addEventListener("change", function () { t.rate = num(rt.value); persist(); });
+    oc.appendChild(h("div", { class: "rrow ref" }, nm, rt, del));
+  });
+  oc.appendChild(h("div", { style: "margin-top:12px" }, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () {
+    set.referTypes.push({ id: newId(), name: "", rate: 0 }); persist(); renderAll(); } }, "+ เพิ่ม Refer")));
+  stack.appendChild(oc);
+
+  if (state.db && state.db.isDevice) {
+    var bc = h("div", { class: "card" }, h("h2", null, "สำรองข้อมูล"));
+    bc.appendChild(h("p", { class: "tnote", style: "margin-top:0" }, "ข้อมูลเก็บอยู่ในเบราว์เซอร์ของเครื่องนี้เท่านั้น ถ้าล้างข้อมูลเบราว์เซอร์หรือเปลี่ยนเครื่อง ข้อมูลจะหาย แนะนำให้ส่งออกไฟล์สำรองไว้เป็นระยะ และใช้ไฟล์เดียวกันนำเข้าในเครื่องอื่นได้"));
+    var fileIn = h("input", { type: "file", accept: "application/json,.json", hidden: true });
+    fileIn.addEventListener("change", function () {
+      var f = fileIn.files && fileIn.files[0]; if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        if (!window.confirm("นำเข้าไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง ต้องการต่อหรือไม่?")) { fileIn.value = ""; return; }
+        try { state.db.importAll(String(rd.result)); toast("นำเข้าข้อมูลแล้ว"); } catch (e) { toast("ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้"); }
+        fileIn.value = "";
+      };
+      rd.readAsText(f);
+    });
+    bc.appendChild(h("div", { class: "bk" },
+      h("button", { class: "btn", type: "button", onclick: function () {
+        var blob = new Blob([state.db.exportAll()], { type: "application/json" });
+        var a = h("a", { href: URL.createObjectURL(blob), download: "ตารางเวร-สำรอง-" + new Date().toISOString().slice(0, 10) + ".json" });
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      } }, "ส่งออกไฟล์สำรอง"),
+      h("button", { class: "btn", type: "button", onclick: function () { fileIn.click(); } }, "นำเข้าไฟล์สำรอง"), fileIn));
+    stack.appendChild(bc);
+  }
+}
+
+/* ───────────────────────── render loop ───────────────────────── */
+function renderAll() {
+  renderTabs(); renderSync();
+  var root = document.getElementById("view");
+  var ready = state.ready.shifts && state.ready.months && state.ready.settings;
+  root.textContent = "";
+  if (!ready && state.mode === "connecting") { root.appendChild(h("div", { class: "skel", "aria-hidden": "true" })); return; }
+  if (state.mode === "local") root.appendChild(h("div", { class: "notice warn", style: "margin-bottom:14px" }, h("b", null, "โหมดทดลอง "), "เบราว์เซอร์นี้ไม่อนุญาตให้เก็บข้อมูล (เช่น โหมดส่วนตัว) ข้อมูลที่กรอกจะหายเมื่อปิดหน้า"));
+  var view = h("div"); root.appendChild(view);
+  ({ summary: renderSummary, log: renderLog, year: renderYear, rates: renderRates }[state.tab] || renderSummary)(view);
+}
+function logFocused() { var a = document.activeElement; return state.tab === "log" && a && a.closest && a.closest(".rows,.extras"); }
+function onData() {
+  if (logFocused()) { refreshLog(); return; }
+  renderAll();
+}
+
+/* ───────────────────────── boot ───────────────────────── */
+function snapToMap(snap) { var mp = new Map(); snap.docs.forEach(function (d) { mp.set(d.id, d.data()); }); return mp; }
+function startDevice() {
+  var ldb = makeLocalDb();
+  state.db = ldb; state.mode = ldb.persisted() ? "device" : "local";
+  function fail() {}
+  ldb.collection("shifts").onSnapshot(function (s) { state.shifts = snapToMap(s); state.ready.shifts = true; onData(); }, fail);
+  ldb.collection("months").onSnapshot(function (s) { state.months = snapToMap(s); state.ready.months = true; onData(); }, fail);
+  ldb.doc("settings/rates").onSnapshot(function (s) { state.settings = s.exists ? s.data() : null; state.ready.settings = true; onData(); }, fail);
+  renderAll();
+}
+function boot() {
+  var hash = (location.hash || "").replace("#", "");
+  if (["summary", "log", "year", "rates"].indexOf(hash) >= 0) state.tab = hash;
+  var dl = h("datalist", { id: "hrlist" }, h("option", { value: "8" }), h("option", { value: "16" })); document.body.appendChild(dl);
+  initTheme();
+  renderAll();
+  var useP = (window.claude && window.claude.use) ? Promise.all([window.claude.use("db"), window.claude.use("user")]) : Promise.resolve([null, null]);
+  useP.then(function (r) {
+    var db = r[0], user = r[1];
+    if (!db) { startDevice(); return; }
+    state.db = db; state.mode = "ok";
+    Promise.resolve(user && user.can ? user.can("data.write") : null).then(function (cw) { if (cw === false) { state.readOnly = true; renderAll(); } }).catch(function () {});
+    function fail(e) { if (e && e.code === "revoked") { state.mode = "local"; renderAll(); } else toast("อ่านข้อมูลไม่สำเร็จ (" + ((e && e.code) || "error") + ")"); }
+    db.collection("shifts").onSnapshot(function (s) { state.shifts = snapToMap(s); state.ready.shifts = true; onData(); }, fail);
+    db.collection("months").onSnapshot(function (s) { state.months = snapToMap(s); state.ready.months = true; onData(); }, fail);
+    db.doc("settings/rates").onSnapshot(function (s) { state.settings = s.exists ? s.data() : null; state.ready.settings = true; onData(); }, fail);
+  }).catch(function () { startDevice(); });
+  window.addEventListener("hashchange", function () {
+    var t = (location.hash || "").replace("#", "");
+    if (["summary", "log", "year", "rates"].indexOf(t) >= 0 && t !== state.tab) { state.tab = t; renderAll(); }
+  });
+}
+boot();
+// web-app install support (only when served as its own site, not inside the artifact viewer)
+if (!window.claude && "serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+})();
+</script>
+</body>
+</html>
