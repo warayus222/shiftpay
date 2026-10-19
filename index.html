@@ -47,7 +47,7 @@
   --c-n: #dcd9f5;
   --c-d: #d8efe3;
   --c-ot: #fbd3de;
-  --s1: #0f8a8a; --s2: #d9466f; --s3: #eda100; --s4: #6250d6; --s5: #eb6834; --s6: #008300;
+  --s1: #0f8a8a; --s2: #d9466f; --s3: #eda100; --s4: #6250d6; --s5: #eb6834; --s6: #008300; --s7: #2a78d6;
   --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Sarabun", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -58,7 +58,7 @@
     --accent: #2bb3b0; --accent-strong: #2bb3b0; --on-accent: #04191a;
     --field: #232322; --weekend: #f2877f; --danger: #f2877f; --good: #0ca30c;
     --c-m: #4a3b10; --c-a: #4d2a1a; --c-n: #2b2a5c; --c-d: #1f4033; --c-ot: #5a2236;
-    --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300;
+    --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300; --s7: #3987e5;
     color-scheme: dark;
   }
 }
@@ -69,7 +69,7 @@
   --accent: #2bb3b0; --accent-strong: #2bb3b0; --on-accent: #04191a;
   --field: #232322; --weekend: #f2877f; --danger: #f2877f; --good: #0ca30c;
   --c-m: #4a3b10; --c-a: #4d2a1a; --c-n: #2b2a5c; --c-d: #1f4033; --c-ot: #5a2236;
-  --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300;
+  --s1: #2bb3b0; --s2: #e8678a; --s3: #c98500; --s4: #9085e9; --s5: #d95926; --s6: #008300; --s7: #3987e5;
   color-scheme: dark;
 }
 
@@ -140,6 +140,8 @@ main { padding-block: 18px 56px; display: block; }
 .wdp .ph .sp { flex: 1; }
 .wdp .cur { font-size: 11.5px; font-weight: 600; background: var(--accent-strong); color: var(--on-accent); border-radius: 999px; padding: 1px 8px; }
 .rrow.wdr { grid-template-columns: minmax(120px, 1fr) 130px; }
+.wdp .sub { font-size: 12.5px; font-weight: 600; color: var(--ink2); margin-top: 10px; }
+.rrow.sal span { font-weight: 600; }
 .rrow.otr { grid-template-columns: minmax(120px, 1.4fr) 120px 110px 38px; }
 .delta { text-align: right; font-size: 13px; color: var(--ink2); }
 .delta b { display: block; font-size: 16px; color: var(--ink); }
@@ -351,17 +353,23 @@ function shiftList(settings) {
   wdPeriods(settings).forEach(function (p) { Object.keys(p.rates || {}).forEach(add); });
   return out;
 }
+function pickPeriod(ps, date) {
+  var pick = null;
+  ps.forEach(function (p) { if ((p.from || "") <= (date || "")) pick = p; });
+  return pick || ps[0] || null;
+}
+// A period holds the monthly salary lump for weekday work (salary) and the extra pay per weekday
+// shift worked (rates: e.g. afternoon / night shifts), both valid from its start date.
 function rateIndex(settings) {
   var ot = {}, ps = wdPeriods(settings);
   otRows(settings).forEach(function (r) { ot[r.shift] = num(r.rate); });
   return {
     ot: ot,
     wd: function (date, shift) {
-      var pick = null;
-      ps.forEach(function (p) { if ((p.from || "") <= (date || "")) pick = p; });
-      if (!pick) pick = ps[0];
+      var pick = pickPeriod(ps, date);
       return pick && pick.rates && has(pick.rates, shift) ? num(pick.rates[shift]) : undefined;
-    }
+    },
+    salary: function (date) { var pick = pickPeriod(ps, date); return pick ? num(pick.salary) : 0; }
   };
 }
 function entryCalc(e, idx, hr) {
@@ -379,13 +387,14 @@ function monthEntries(shiftsMap, key) {
   out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (num(a.k) || 1) - (num(b.k) || 1); });
   return out;
 }
-function summarize(entries, mdoc, settings) {
+// monthKey ("YYYY-MM") adds the monthly salary lump when the month has any entries
+function summarize(entries, mdoc, settings, monthKey) {
   var shifts = shiftList(settings).slice();
   var idx = rateIndex(settings), hr = num(settings && settings.extraHourRate);
   var counts = { all: {}, WD: {}, OT: {} };
   shifts.forEach(function (s) { counts.all[s] = 0; counts.WD[s] = 0; counts.OT[s] = 0; });
   var hours = { all: 0, WD: 0, OT: 0 }, pay = { WD: 0, OT: 0 };
-  var parts = { wd: 0, ot: 0, hours: 0, refer: 0, oncall: 0, others: 0 };
+  var parts = { salary: 0, wd: 0, ot: 0, hours: 0, refer: 0, oncall: 0, others: 0 };
   var missing = 0, work = {};
   entries.forEach(function (e) {
     var c = entryCalc(e, idx, hr), h = num(e.hours);
@@ -411,7 +420,8 @@ function summarize(entries, mdoc, settings) {
   parts.oncall = oncallCount * num(settings && settings.oncallRate);
   var others = (mdoc && mdoc.others) || [];
   others.forEach(function (o) { parts.others += num(o.amount); });
-  var total = parts.wd + parts.ot + parts.hours + parts.refer + parts.oncall + parts.others;
+  if (monthKey && entries.length) parts.salary = idx.salary(monthKey + "-01");
+  var total = parts.salary + parts.wd + parts.ot + parts.hours + parts.refer + parts.oncall + parts.others;
   function sum(o) { var t = 0; shifts.forEach(function (s) { t += o[s]; }); return t; }
   return {
     shifts: shifts, counts: counts,
@@ -496,7 +506,7 @@ function initTheme() {
 // Used when the page is opened outside the artifact viewer (no shared database):
 // same interface as the database, kept in this browser's localStorage.
 var STORE_KEY = "shiftpay.data.v1";
-var DEFAULT_SETTINGS = {"rates": [{"id": "r1", "dayType": "วันธรรมดา", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 1015.5}, {"id": "r2", "dayType": "วันธรรมดา", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 1365.5}, {"id": "r3", "dayType": "วันธรรมดา", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 1365.5}, {"id": "r4", "dayType": "วันธรรมดา", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 2381.0}, {"id": "r5", "dayType": "วันธรรมดา", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 2731.0}, {"id": "r6", "dayType": "OT", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 700.0}, {"id": "r7", "dayType": "OT", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 700.0}, {"id": "r8", "dayType": "OT", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 700.0}, {"id": "r9", "dayType": "OT", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 1400.0}, {"id": "r10", "dayType": "OT", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 1400.0}], "extraHourRate": 87.5, "extraHourNote": "สมมติ = 700 ÷ 8 ชม. แก้ให้ตรงกับของจริง", "referTypes": [{"id": "ubon", "name": "อุบล", "rate": 700.0}, {"id": "amnat", "name": "อำนาจ", "rate": 350.0}], "oncallRate": 100.0};
+var DEFAULT_SETTINGS = {"rates": [{"id": "r6", "dayType": "OT", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 700.0}, {"id": "r7", "dayType": "OT", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 700.0}, {"id": "r8", "dayType": "OT", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 700.0}, {"id": "r9", "dayType": "OT", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 1400.0}, {"id": "r10", "dayType": "OT", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 1400.0}], "extraHourRate": 87.5, "extraHourNote": "สมมติ = 700 ÷ 8 ชม. แก้ให้ตรงกับของจริง", "referTypes": [{"id": "ubon", "name": "อุบล", "rate": 700.0}, {"id": "amnat", "name": "อำนาจ", "rate": 350.0}], "oncallRate": 100.0, "wdPeriods": [{"id": "p0", "from": "", "salary": 20310, "rates": {"เวรเช้า": 0, "เวรบ่าย": 360, "เวรดึก": 360, "เวรควบ ชบ/ชด": 360, "เวรควบ ดบ (ดึก-บ่าย)": 720}}]};
 function makeLocalDb() {
   var data = { shifts: {}, months: {}, settings: { rates: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) } };
   var persisted = true, subs = [];
@@ -598,7 +608,7 @@ function saveSettings(obj) { state.settings = obj; return dbWrite("settings/rate
 function curSettings() { return state.settings || { rates: [], extraHourRate: 0, referTypes: [], oncallRate: 0 }; }
 function monthSummary(y, m) {
   var key = mkey(y, m);
-  return summarize(monthEntries(state.shifts, key), state.months.get(key), state.settings);
+  return summarize(monthEntries(state.shifts, key), state.months.get(key), state.settings, key);
 }
 function newId() { return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -642,7 +652,7 @@ function noRatesNotice() {
     "ค่าเวรจะเป็น 0 จนกว่าจะมีเรท ", h("button", { class: "link", onclick: function () { go("rates"); } }, "ไปตั้งค่าเรท"));
 }
 var PARTS = [
-  ["wd", "ค่าเวรวันธรรมดา (ในเงินเดือน)", "--s1"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
+  ["salary", "เงินเดือน (เวรธรรมดา)", "--s1"], ["wd", "เบี้ยเวรบ่าย/ดึก วันธรรมดา", "--s7"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
   ["refer", "Refer", "--s4"], ["oncall", "Oncall", "--s5"], ["others", "รายได้อื่นๆ", "--s6"]
 ];
 function chip(e) {
@@ -679,8 +689,8 @@ function renderSummary(root) {
       h("div", { class: "big num" }, "฿" + nf0.format(whole), frac ? h("small", null, "." + pad(frac)) : null),
       h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · ชั่วโมงเสริม " + S.hours.all + " ชม."),
       h("div", { class: "split" },
-        h("div", null, h("span", null, "ค่าเวรในเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.parts.wd))),
-        h("div", null, h("span", null, "โอที + นอกเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.total - S.parts.wd))))),
+        h("div", null, h("span", null, "เงินเดือน + เวรธรรมดา"), h("b", { class: "num" }, "฿" + money(S.parts.salary + S.parts.wd))),
+        h("div", null, h("span", null, "โอที + นอกเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.total - S.parts.salary - S.parts.wd))))),
     delta));
 
   // composition
@@ -711,7 +721,7 @@ function renderSummary(root) {
   stack.appendChild(h("div", { class: "card" },
     h("h2", null, "จำนวนเวร", h("small", null, "ใช้เทียบกับตารางเวรของหอผู้ป่วย")),
     h("div", { class: "scroll" }, h("table", null, h("thead", null, head), tbody)),
-    h("p", { class: "tnote" }, "แถว “ทั้งหมด” ในช่องค่าตอบแทนรวม Refer, Oncall, รายได้อื่นๆ และชั่วโมงเสริมของวัน OFF ด้วย")));
+    h("p", { class: "tnote" }, "แถว “ทั้งหมด” ในช่องค่าตอบแทนรวมเงินเดือน Refer, Oncall, รายได้อื่นๆ และชั่วโมงเสริมของวัน OFF ด้วย")));
 
   // calendar
   var cal = h("div", { class: "cal" });
@@ -744,7 +754,7 @@ function renderSummary(root) {
     var date2 = key + "-" + pad(dd), segs = [], lines = [];
     monthEntries(state.shifts, key).filter(function (e) { return e.date === date2; }).forEach(function (e) {
       var c = entryCalc(e, idx, hr);
-      if (c.shiftPay > 0) segs.push({ v: c.shiftPay, c: e.dayType === OT ? "--s2" : "--s1" });
+      if (c.shiftPay > 0) segs.push({ v: c.shiftPay, c: e.dayType === OT ? "--s2" : "--s7" });
       if (c.hoursPay > 0) segs.push({ v: c.hoursPay, c: "--s3" });
       lines.push([e.shift || e.dayType, e.dayType === OT && e.shift ? "OT" : "", num(e.hours) ? "+" + num(e.hours) + " ชม." : ""].filter(Boolean).join(" ") + " " + money(c.total));
     });
@@ -752,7 +762,7 @@ function renderSummary(root) {
   }
   stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้รายวัน", h("small", null, "บาท")), barChart(days, function (i) { return i === 0 || (i + 1) % 5 === 0; }),
     h("div", { class: "inline-legend" },
-      [["--s1", "ค่าเวรวันธรรมดา"], ["--s2", "ค่าเวร OT"], ["--s3", "ชั่วโมงเสริม"]].map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[0] + ")" }), l[1]); }))));
+      [["--s7", "เบี้ยเวรวันธรรมดา"], ["--s2", "ค่าเวร OT"], ["--s3", "ชั่วโมงเสริม"]].map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[0] + ")" }), l[1]); }))));
   void S;
 }
 
@@ -994,13 +1004,13 @@ function renderRates(root) {
 
   // weekday shift rates: part of the salary, so they are set per period (salary changes every ~6 months)
   if (!set.wdPeriods) {
-    set.wdPeriods = wdPeriods(set).map(function (p) { return { id: p.id === "base" ? newId() : p.id, from: p.from, rates: p.rates }; });
+    set.wdPeriods = wdPeriods(set).map(function (p) { return { id: p.id === "base" ? newId() : p.id, from: p.from, salary: p.salary || 0, rates: p.rates }; });
     set.rates = set.rates.filter(function (r) { return r.dayType !== WD; });
   }
   var t0 = new Date(), todayIso = mkey(t0.getFullYear(), t0.getMonth()) + "-" + pad(t0.getDate());
   var names = shiftList(set);
-  var wc = h("div", { class: "card" }, h("h2", null, "ค่าเวรวันธรรมดา", h("small", null, "คิดรวมในเงินเดือน")));
-  wc.appendChild(h("p", { class: "tnote", style: "margin-top:0" }, "เรทเวรวันธรรมดาขึ้นกับเงินเดือน เมื่อเงินเดือนเปลี่ยนให้กด “เพิ่มช่วงเรทใหม่” แล้วกรอกเรทและวันที่เริ่มมีผล เดือนเก่าจะใช้เรทเดิม ไม่เปลี่ยนตาม"));
+  var wc = h("div", { class: "card" }, h("h2", null, "เวรวันธรรมดา", h("small", null, "เงินเดือน + เบี้ยเวร")));
+  wc.appendChild(h("p", { class: "tnote", style: "margin-top:0" }, "เวรวันธรรมดาได้เป็นเงินเดือนก้อนเดียวต่อเดือน (นับในเดือนที่มีบันทึกเวร) บวกเบี้ยเวรต่อเวรที่ทำ เช่น บ่าย/ดึก เมื่อเงินเดือนเปลี่ยนให้กด “เพิ่มช่วงเรทใหม่” แล้วกรอกค่าใหม่กับวันที่เริ่มมีผล เดือนเก่าจะใช้ค่าเดิม เงินเดือนใช้ตามช่วงที่มีผลในวันที่ 1 ของเดือน"));
   var plist = set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? 1 : a.from > b.from ? -1 : 0; });
   var curP = null; set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; }).forEach(function (q) { if ((q.from || "") <= todayIso) curP = q; });
   if (!plist.length) wc.appendChild(h("div", { class: "notice" }, "ยังไม่มีช่วงเรท กด “เพิ่มช่วงเรทใหม่” เพื่อเริ่มต้น"));
@@ -1018,6 +1028,10 @@ function renderRates(root) {
       if (!window.confirm("ลบช่วงเรทนี้? เดือนที่เคยใช้เรทช่วงนี้จะไปใช้เรทช่วงอื่นแทน")) return;
       set.wdPeriods = set.wdPeriods.filter(function (q) { return q !== pd; }); persist(); renderAll(); } }, "×"));
     var box = h("div", { class: "wdp" }, head);
+    var si = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เงินเดือนเวรธรรมดา", value: String(num(pd.salary)), disabled: ro });
+    si.addEventListener("change", function () { pd.salary = num(si.value); persist(); });
+    box.appendChild(h("div", { class: "rrow wdr sal" }, h("span", null, "เงินเดือน (บาท/เดือน)"), si));
+    box.appendChild(h("div", { class: "sub" }, "เบี้ยเวรต่อเวร (บาท)"));
     names.forEach(function (nm) {
       var ri = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท " + nm, value: pd.rates && has(pd.rates, nm) ? String(num(pd.rates[nm])) : "", placeholder: "—", disabled: ro });
       ri.addEventListener("change", function () { if (!pd.rates) pd.rates = {}; if (ri.value === "") delete pd.rates[nm]; else pd.rates[nm] = num(ri.value); persist(); });
@@ -1030,7 +1044,7 @@ function renderRates(root) {
     h("button", { class: "btn primary", type: "button", disabled: ro, onclick: function () {
       var newest = set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; }).pop();
       var cp = {}; if (newest && newest.rates) Object.keys(newest.rates).forEach(function (k) { cp[k] = newest.rates[k]; });
-      set.wdPeriods.push({ id: newId(), from: set.wdPeriods.length ? todayIso : "", rates: cp }); persist(); renderAll(); } }, "+ เพิ่มช่วงเรทใหม่ (เงินเดือนเปลี่ยน)")));
+      set.wdPeriods.push({ id: newId(), from: set.wdPeriods.length ? todayIso : "", rates: cp, salary: newest ? num(newest.salary) : 0 }); persist(); renderAll(); } }, "+ เพิ่มช่วงเรทใหม่ (เงินเดือนเปลี่ยน)")));
   wc.appendChild(h("div", { class: "bk" }, nn, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () {
     var v = nn.value.trim(); if (!v || names.indexOf(v) >= 0) return;
     if (!set.wdPeriods.length) set.wdPeriods.push({ id: newId(), from: "", rates: {} });
