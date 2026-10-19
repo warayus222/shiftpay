@@ -522,6 +522,22 @@ function makeLocalDb() {
     localStorage.setItem(STORE_KEY + ".probe", "1"); localStorage.removeItem(STORE_KEY + ".probe");
   } catch (e) { persisted = false; }
   function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { persisted = false; } }
+  // one-time migration: weekday rates still equal to the first built-in defaults (per-shift lump rates,
+  // no salary) are replaced by the salary + per-shift allowance model. Customised rates are left alone.
+  (function migrate() {
+    var OLD = { "เวรเช้า": 1015.5, "เวรบ่าย": 1365.5, "เวรดึก": 1365.5, "เวรควบ ชบ/ชด": 2381, "เวรควบ ดบ (ดึก-บ่าย)": 2731 };
+    function isOld(m) { var k = Object.keys(OLD); return !!m && Object.keys(m).length === k.length && k.every(function (n) { return has(m, n) && num(m[n]) === OLD[n]; }); }
+    var cfg = data.settings && data.settings.rates; if (!cfg) return;
+    var fresh = function () { return JSON.parse(JSON.stringify(DEFAULT_SETTINGS.wdPeriods)); };
+    var changed = false;
+    if (cfg.wdPeriods && cfg.wdPeriods.length) {
+      if (cfg.wdPeriods.length === 1 && !num(cfg.wdPeriods[0].salary) && isOld(cfg.wdPeriods[0].rates)) { cfg.wdPeriods = fresh(); changed = true; }
+    } else {
+      var m = {}; (cfg.rates || []).forEach(function (r) { if (r.dayType === WD) m[r.shift] = num(r.rate); });
+      if (isOld(m)) { cfg.wdPeriods = fresh(); cfg.rates = (cfg.rates || []).filter(function (r) { return r.dayType !== WD; }); changed = true; }
+    }
+    if (changed) save();
+  })();
   function notify(col, id) {
     subs.slice().forEach(function (s) { if (s.col === col && (s.id === null || s.id === id)) s.fire(); });
   }
