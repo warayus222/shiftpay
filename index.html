@@ -162,6 +162,8 @@ main { padding-block: 18px 56px; display: block; }
 
 /* tables */
 .scroll { overflow-x: auto; }
+tr.dim td { color: var(--muted); }
+table.sumt td:first-child { white-space: normal; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
 th:first-child, td:first-child { text-align: left; }
@@ -311,6 +313,9 @@ var TH_MON_S = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","�
 var TH_DOW = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 var WD = "วันธรรมดา", OT = "OT", OFF = "OFF";
 var DAYTYPES = [WD, OT, OFF];
+// "เวรแทน" (a shift taken over from someone else): 1 shift = 8 hours. Stored as hours, shown/entered as shifts.
+var SUB_H = 8;
+function subN(hours) { return Math.round(num(hours) / SUB_H * 100) / 100; }
 function pad(n) { return String(n).padStart(2, "0"); }
 function mkey(y, m) { return y + "-" + pad(m + 1); }
 function dim(y, m) { return new Date(y, m + 1, 0).getDate(); }
@@ -393,7 +398,7 @@ function summarize(entries, mdoc, settings, monthKey) {
   var idx = rateIndex(settings), hr = num(settings && settings.extraHourRate);
   var counts = { all: {}, WD: {}, OT: {} };
   shifts.forEach(function (s) { counts.all[s] = 0; counts.WD[s] = 0; counts.OT[s] = 0; });
-  var hours = { all: 0, WD: 0, OT: 0 }, pay = { WD: 0, OT: 0 };
+  var hours = { all: 0, WD: 0, OT: 0 }, pay = { WD: 0, OT: 0 }, payBy = { WD: {}, OT: {} }, allowCount = 0;
   var parts = { salary: 0, wd: 0, ot: 0, hours: 0, refer: 0, oncall: 0, others: 0 };
   var missing = 0, work = {};
   entries.forEach(function (e) {
@@ -406,8 +411,8 @@ function summarize(entries, mdoc, settings, monthKey) {
       work[e.date] = 1;
     }
     hours.all += h;
-    if (e.dayType === WD) { hours.WD += h; pay.WD += c.total; parts.wd += c.shiftPay; }
-    if (e.dayType === OT) { hours.OT += h; pay.OT += c.total; parts.ot += c.shiftPay; }
+    if (e.dayType === WD) { hours.WD += h; pay.WD += c.total; parts.wd += c.shiftPay; payBy.WD[e.shift] = (payBy.WD[e.shift] || 0) + c.shiftPay; if (c.shiftPay > 0) allowCount++; }
+    if (e.dayType === OT) { hours.OT += h; pay.OT += c.total; parts.ot += c.shiftPay; payBy.OT[e.shift] = (payBy.OT[e.shift] || 0) + c.shiftPay; }
     parts.hours += c.hoursPay;
     if (c.missing) missing++;
   });
@@ -426,7 +431,7 @@ function summarize(entries, mdoc, settings, monthKey) {
   return {
     shifts: shifts, counts: counts,
     nShifts: { all: sum(counts.all), WD: sum(counts.WD), OT: sum(counts.OT) },
-    hours: hours, pay: { all: total, WD: pay.WD, OT: pay.OT }, parts: parts, total: total,
+    hours: hours, subShifts: subN(hours.all), payBy: payBy, allowCount: allowCount, pay: { all: total, WD: pay.WD, OT: pay.OT }, parts: parts, total: total,
     missing: missing, referDetail: referDetail, oncallCount: oncallCount, others: others,
     workDays: Object.keys(work).length, hasData: entries.length > 0 || total > 0
   };
@@ -506,7 +511,7 @@ function initTheme() {
 // Used when the page is opened outside the artifact viewer (no shared database):
 // same interface as the database, kept in this browser's localStorage.
 var STORE_KEY = "shiftpay.data.v1";
-var DEFAULT_SETTINGS = {"rates": [{"id": "r6", "dayType": "OT", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 700.0}, {"id": "r7", "dayType": "OT", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 700.0}, {"id": "r8", "dayType": "OT", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 700.0}, {"id": "r9", "dayType": "OT", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 1400.0}, {"id": "r10", "dayType": "OT", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 1400.0}], "extraHourRate": 87.5, "extraHourNote": "สมมติ = 700 ÷ 8 ชม. แก้ให้ตรงกับของจริง", "referTypes": [{"id": "ubon", "name": "อุบล", "rate": 700.0}, {"id": "amnat", "name": "อำนาจ", "rate": 350.0}], "oncallRate": 100.0, "wdPeriods": [{"id": "p0", "from": "", "salary": 20310, "rates": {"เวรเช้า": 0, "เวรบ่าย": 360, "เวรดึก": 360, "เวรควบ ชบ/ชด": 360, "เวรควบ ดบ (ดึก-บ่าย)": 720}}]};
+var DEFAULT_SETTINGS = {"rates": [{"id": "r6", "dayType": "OT", "shift": "เวรเช้า", "time": "08:00-16:00", "rate": 700.0}, {"id": "r7", "dayType": "OT", "shift": "เวรบ่าย", "time": "16:00-00:00", "rate": 700.0}, {"id": "r8", "dayType": "OT", "shift": "เวรดึก", "time": "00:00-08:00", "rate": 700.0}, {"id": "r9", "dayType": "OT", "shift": "เวรควบ ชบ/ชด", "time": "ควบ 2 เวร", "rate": 1400.0}, {"id": "r10", "dayType": "OT", "shift": "เวรควบ ดบ (ดึก-บ่าย)", "time": "ควบ 2 เวร", "rate": 1400.0}], "extraHourRate": 87.5, "referTypes": [{"id": "ubon", "name": "อุบล", "rate": 700.0}, {"id": "amnat", "name": "อำนาจ", "rate": 350.0}], "oncallRate": 100.0, "wdPeriods": [{"id": "p0", "from": "", "salary": 20310, "rates": {"เวรเช้า": 0, "เวรบ่าย": 360, "เวรดึก": 360, "เวรควบ ชบ/ชด": 360, "เวรควบ ดบ (ดึก-บ่าย)": 720}}]};
 function makeLocalDb() {
   var data = { shifts: {}, months: {}, settings: { rates: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) } };
   var persisted = true, subs = [];
@@ -668,7 +673,7 @@ function noRatesNotice() {
     "ค่าเวรจะเป็น 0 จนกว่าจะมีเรท ", h("button", { class: "link", onclick: function () { go("rates"); } }, "ไปตั้งค่าเรท"));
 }
 var PARTS = [
-  ["salary", "เงินเดือน (เวรธรรมดา)", "--s1"], ["wd", "เบี้ยเวรบ่าย/ดึก วันธรรมดา", "--s7"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
+  ["salary", "เงินเดือน (เวรธรรมดา)", "--s1"], ["wd", "เบี้ยเวรบ่าย/ดึก วันธรรมดา", "--s7"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "เวรแทน (เวรที่รับมา)", "--s3"],
   ["refer", "Refer", "--s4"], ["oncall", "Oncall", "--s5"], ["others", "รายได้อื่นๆ", "--s6"]
 ];
 function chip(e) {
@@ -676,7 +681,7 @@ function chip(e) {
   if (e.shift) parts.push(h("span", { class: "chip " + classOf(e.shift), title: e.shift }, codeOf(e.shift)));
   if (e.dayType === OT) parts.push(h("span", { class: "chip ot" }, "OT"));
   if (e.dayType === OFF) parts.push(h("span", { class: "chip off" }, "OFF"));
-  if (num(e.hours) > 0 && !e.shift) parts.push(h("span", { class: "chip" }, "+" + num(e.hours), h("span", { class: "u" }, " ชม.")));
+  if (num(e.hours) > 0 && !e.shift) parts.push(h("span", { class: "chip" }, "+" + subN(e.hours), h("span", { class: "u" }, " แทน")));
   return parts;
 }
 
@@ -703,7 +708,7 @@ function renderSummary(root) {
     h("div", null,
       h("div", { class: "lab" }, "รายได้รวม " + monthTitle(y, m)),
       h("div", { class: "big num" }, "฿" + nf0.format(whole), frac ? h("small", null, "." + pad(frac)) : null),
-      h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · ชั่วโมงเสริม " + S.hours.all + " ชม."),
+      h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · เวรแทน " + S.subShifts + " เวร"),
       h("div", { class: "split" },
         h("div", null, h("span", null, "เงินเดือน + เวรธรรมดา"), h("b", { class: "num" }, "฿" + money(S.parts.salary + S.parts.wd))),
         h("div", null, h("span", null, "โอที + นอกเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.total - S.parts.salary - S.parts.wd))))),
@@ -721,23 +726,34 @@ function renderSummary(root) {
   if (!bar.childNodes.length) bar.appendChild(h("span", { style: "width:100%;background:transparent" }));
   stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้มาจากไหน", h("small", null, "บาท · สัดส่วน")), bar, legend));
 
-  // table that mirrors the sheet's summary block
-  var head = h("tr", null, h("th", null, "ประเภทวัน"));
-  S.shifts.forEach(function (s) { head.appendChild(h("th", null, s)); });
-  head.appendChild(h("th", null, "รวมเวร")); head.appendChild(h("th", null, "ชั่วโมงเสริม (ชม.)")); head.appendChild(h("th", null, "ค่าตอบแทน (บาท)"));
-  var tbody = h("tbody");
-  [["all", "ทั้งหมด", "tot"], ["WD", WD, ""], ["OT", OT, ""]].forEach(function (r) {
-    var tr = h("tr", { class: r[2] }, h("td", null, r[1]));
-    S.shifts.forEach(function (s) { tr.appendChild(h("td", null, String(S.counts[r[0]][s]))); });
-    tr.appendChild(h("td", null, String(S.nShifts[r[0]])));
-    tr.appendChild(h("td", null, String(S.hours[r[0]])));
-    tr.appendChild(h("td", null, nf2.format(S.pay[r[0]])));
-    tbody.appendChild(tr);
+  // shift summaries: weekday (with allowance), OT, and substitute shifts, each on its own
+  function sumCard(title, sub, rows, foot, note) {
+    var tb = h("tbody");
+    rows.forEach(function (r) {
+      tb.appendChild(h("tr", { class: r.cls || "" }, h("td", null, r.name), h("td", null, r.n == null ? "" : String(r.n)), h("td", null, r.amt == null ? "" : nf2.format(r.amt))));
+    });
+    foot.forEach(function (r) {
+      tb.appendChild(h("tr", { class: "tot" }, h("td", null, r.name), h("td", null, r.n == null ? "" : String(r.n)), h("td", null, r.amt == null ? "" : nf2.format(r.amt))));
+    });
+    return h("div", { class: "card" }, h("h2", null, title, h("small", null, sub)),
+      h("div", { class: "scroll" }, h("table", { class: "sumt" }, h("thead", null, h("tr", null, h("th", null, "เวร"), h("th", null, "จำนวน (เวร)"), h("th", null, "บาท"))), tb)),
+      note ? h("p", { class: "tnote" }, note) : null);
+  }
+  var wdRows = S.shifts.map(function (sn) {
+    var n = S.counts.WD[sn], amt = S.payBy.WD[sn] || 0;
+    return { name: sn, n: n, amt: amt, cls: n === 0 ? "dim" : "" };
   });
-  stack.appendChild(h("div", { class: "card" },
-    h("h2", null, "จำนวนเวร", h("small", null, "ใช้เทียบกับตารางเวรของหอผู้ป่วย")),
-    h("div", { class: "scroll" }, h("table", null, h("thead", null, head), tbody)),
-    h("p", { class: "tnote" }, "แถว “ทั้งหมด” ในช่องค่าตอบแทนรวมเงินเดือน Refer, Oncall, รายได้อื่นๆ และชั่วโมงเสริมของวัน OFF ด้วย")));
+  stack.appendChild(sumCard("เวรวันธรรมดา", "เงินเดือน + เบี้ยเวร", wdRows, [
+    { name: "รวมเวรบ่าย/ดึก (ได้เบี้ยเวร)", n: S.allowCount, amt: S.parts.wd },
+    { name: "เงินเดือน (ก้อนเดียว)", n: null, amt: S.parts.salary },
+    { name: "รวมเวรวันธรรมดา", n: S.nShifts.WD, amt: S.parts.salary + S.parts.wd }],
+    "เบี้ยเวรคิดเฉพาะเวรที่ตั้งเบี้ยเวรไว้ เช่น บ่าย/ดึก เวรเช้าไม่มีเบี้ยเวร"));
+  var otRows2 = S.shifts.map(function (sn) {
+    var n = S.counts.OT[sn], amt = S.payBy.OT[sn] || 0;
+    return { name: sn, n: n, amt: amt, cls: n === 0 ? "dim" : "" };
+  });
+  stack.appendChild(sumCard("เวร OT", "แยกจากเวรวันธรรมดา", otRows2, [{ name: "รวมเวร OT", n: S.nShifts.OT, amt: S.parts.ot }]));
+  stack.appendChild(sumCard("เวรแทน", "เวรที่รับมา · 1 เวร = 8 ชม.", [], [{ name: "เวรแทนที่รับมา", n: S.subShifts, amt: S.parts.hours }]));
 
   // calendar
   var cal = h("div", { class: "cal" });
@@ -772,13 +788,13 @@ function renderSummary(root) {
       var c = entryCalc(e, idx, hr);
       if (c.shiftPay > 0) segs.push({ v: c.shiftPay, c: e.dayType === OT ? "--s2" : "--s7" });
       if (c.hoursPay > 0) segs.push({ v: c.hoursPay, c: "--s3" });
-      lines.push([e.shift || e.dayType, e.dayType === OT && e.shift ? "OT" : "", num(e.hours) ? "+" + num(e.hours) + " ชม." : ""].filter(Boolean).join(" ") + " " + money(c.total));
+      lines.push([e.shift || e.dayType, e.dayType === OT && e.shift ? "OT" : "", num(e.hours) ? "+" + subN(e.hours) + " เวรแทน" : ""].filter(Boolean).join(" ") + " " + money(c.total));
     });
     days.push({ label: String(dd), title: dd + " " + TH_MON_S[m], segs: segs, lines: lines });
   }
   stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้รายวัน", h("small", null, "บาท")), barChart(days, function (i) { return i === 0 || (i + 1) % 5 === 0; }),
     h("div", { class: "inline-legend" },
-      [["--s7", "เบี้ยเวรวันธรรมดา"], ["--s2", "ค่าเวร OT"], ["--s3", "ชั่วโมงเสริม"]].map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[0] + ")" }), l[1]); }))));
+      [["--s7", "เบี้ยเวรวันธรรมดา"], ["--s2", "ค่าเวร OT"], ["--s3", "เวรแทน"]].map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[0] + ")" }), l[1]); }))));
   void S;
 }
 
@@ -835,7 +851,7 @@ function renderLog(root) {
   var shifts = shiftList(set);
   var rows = h("div", { class: "rows" });
   rows.appendChild(h("div", { class: "rowhead" }, h("div", null, "วันที่"), h("div", null, "ประเภทวัน"), h("div", null, "เวรที่ทำ"),
-    h("div", { class: "r" }, "ค่าเวร (บาท)"), h("div", { class: "r" }, "ชั่วโมงเสริม"), h("div", { class: "r" }, "รวมรายวัน"), h("div", null, "หมายเหตุ")));
+    h("div", { class: "r" }, "ค่าเวร (บาท)"), h("div", { class: "r" }, "เวรแทน (เวร)"), h("div", { class: "r" }, "รวมรายวัน"), h("div", null, "หมายเหตุ")));
   rowEls = [];
   for (var d = 1; d <= n; d++) {
     var date = key + "-" + pad(d);
@@ -861,7 +877,7 @@ function buildRow(date, k, first, last, shifts, ro) {
   dt.appendChild(h("option", { value: "" }, "ประเภทวัน"));
   DAYTYPES.forEach(function (t) { dt.appendChild(h("option", { value: t }, t)); });
   var sh = h("select", { class: "sh", "aria-label": "เวรที่ทำ " + dnum, disabled: ro });
-  var hrs = h("input", { type: "number", class: "hrs", min: "0", step: "0.5", inputmode: "decimal", placeholder: "ชม.", "aria-label": "ชั่วโมงเสริม " + dnum, list: "hrlist", disabled: ro });
+  var hrs = h("input", { type: "number", class: "hrs", min: "0", step: "0.5", inputmode: "decimal", placeholder: "เวร", title: "เวรแทน (เวรที่รับมา) 1 เวร = 8 ชม.", "aria-label": "เวรแทน " + dnum, list: "hrlist", disabled: ro });
   var note = h("input", { type: "text", class: "note", placeholder: "หมายเหตุ", "aria-label": "หมายเหตุ " + dnum, disabled: ro });
   var pay = h("div", { class: "pay" }), tot = h("div", { class: "tot" });
   var addBtn = h("button", { class: "mini", type: "button", title: "เพิ่มรายการในวันเดียวกัน", "aria-label": "เพิ่มรายการในวันที่ " + dnum, disabled: ro });
@@ -876,7 +892,7 @@ function buildRow(date, k, first, last, shifts, ro) {
   function commit(e) { saveEntry(e); syncRow(row); refreshLog(); }
   dt.addEventListener("change", function () { var e = cur(); e.dayType = dt.value; if (e.dayType === OFF) e.shift = ""; commit(e); });
   sh.addEventListener("change", function () { var e = cur(); e.shift = sh.value; commit(e); });
-  hrs.addEventListener("change", function () { var e = cur(); e.hours = Math.max(0, num(hrs.value)); commit(e); });
+  hrs.addEventListener("change", function () { var e = cur(); e.hours = Math.max(0, num(hrs.value)) * SUB_H; commit(e); });
   note.addEventListener("change", function () { var e = cur(); e.note = note.value.trim(); commit(e); });
   addBtn.addEventListener("click", function () { state.extraRows.add(entryId(date, k + 1)); renderAll(); });
   delBtn.addEventListener("click", function () { removeEntry(date, k); renderAll(); });
@@ -896,7 +912,7 @@ function syncRow(row) {
   c.dt.value = e.dayType || ""; c.dt.dataset.v = e.dayType || "";
   c.sh.value = e.shift || ""; c.sh.dataset.c = classOf(e.shift);
   c.sh.disabled = state.readOnly || e.dayType === OFF;
-  if (document.activeElement !== c.hrs) c.hrs.value = num(e.hours) ? String(num(e.hours)) : "";
+  if (document.activeElement !== c.hrs) c.hrs.value = num(e.hours) ? String(subN(e.hours)) : "";
   if (document.activeElement !== c.note) c.note.value = e.note || "";
   var filled = !!(e.dayType || e.shift || num(e.hours) || e.note);
   c.pay.className = "pay num" + (calc.missing ? " bad" : "");
@@ -909,7 +925,7 @@ function refreshLog() {
   var S = monthSummary(state.sel.y, state.sel.m), el = document.getElementById("logTotal");
   if (!el) return;
   el.textContent = "";
-  el.appendChild(h("span", null, S.nShifts.all + " เวร · ชั่วโมงเสริม " + S.hours.all + " ชม."));
+  el.appendChild(h("span", null, S.nShifts.all + " เวร · เวรแทน " + S.subShifts + " เวร"));
   el.appendChild(h("span", { class: "num" }, "฿" + money(S.total)));
 }
 function extrasCard(key, ro) {
@@ -984,7 +1000,7 @@ function renderYear(root) {
   var used = PARTS.filter(function (p) { return sums.some(function (S) { return S.parts[p[0]] > 0; }); });
   stack.appendChild(h("div", { class: "card hero" },
     h("div", null, h("div", { class: "lab" }, "รายได้รวมทั้งปี " + be(y)), h("div", { class: "big num" }, "฿" + money(tot.total)),
-      h("div", { class: "meta" }, tot.shifts + " เวร · ชั่วโมงเสริม " + tot.hours + " ชม."))));
+      h("div", { class: "meta" }, tot.shifts + " เวร · เวรแทน " + subN(tot.hours) + " เวร"))));
   stack.appendChild(h("div", { class: "card" }, h("h2", null, "รายได้แต่ละเดือน", h("small", null, "บาท")), barChart(cols, function () { return true; }),
     h("div", { class: "inline-legend" }, used.map(function (l) { return h("span", null, h("i", { style: "background:var(" + l[2] + ")" }), l[1]); }))));
 
@@ -997,15 +1013,15 @@ function renderYear(root) {
       onkeydown: function (ev) { if (ev.key === "Enter") { state.sel = { y: y, m: i }; go("summary"); } } },
       h("td", null, TH_MONTHS[i]),
       h("td", null, S.hasData ? String(c.m) : "–"), h("td", null, S.hasData ? String(c.a) : "–"), h("td", null, S.hasData ? String(c.n) : "–"), h("td", null, S.hasData ? String(c.d) : "–"),
-      h("td", null, S.hasData ? String(S.nShifts.all) : "–"), h("td", null, S.hasData ? String(S.hours.all) : "–"),
+      h("td", null, S.hasData ? String(S.nShifts.all) : "–"), h("td", null, S.hasData ? String(S.subShifts) : "–"),
       h("td", null, S.hasData ? nf2.format(S.total) : "ยังไม่มีบันทึก"));
     tb.appendChild(tr);
   });
   tb.appendChild(h("tr", { class: "tot" }, h("td", null, "รวมทั้งปี"), h("td", null, String(tot.m)), h("td", null, String(tot.a)), h("td", null, String(tot.n)), h("td", null, String(tot.d)),
-    h("td", null, String(tot.shifts)), h("td", null, String(tot.hours)), h("td", null, nf2.format(tot.total))));
+    h("td", null, String(tot.shifts)), h("td", null, String(subN(tot.hours))), h("td", null, nf2.format(tot.total))));
   stack.appendChild(h("div", { class: "card" }, h("h2", null, "สรุปแต่ละเดือน", h("small", null, "แตะเดือนเพื่อดูรายละเอียด")),
     h("div", { class: "scroll" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "เดือน"), h("th", null, "เช้า"), h("th", null, "บ่าย"), h("th", null, "ดึก"), h("th", null, "ควบ"),
-      h("th", null, "รวมเวร"), h("th", null, "ชม.เสริม"), h("th", null, "รายได้รวม (บาท)"))), tb))));
+      h("th", null, "รวมเวร"), h("th", null, "เวรแทน"), h("th", null, "รายได้รวม (บาท)"))), tb))));
   void set;
 }
 
@@ -1089,10 +1105,10 @@ function renderRates(root) {
 
   // other rates
   var oc = h("div", { class: "card" }, h("h2", null, "เรทอื่นๆ"));
-  var hrIn = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรทชั่วโมงเสริม", value: String(num(set.extraHourRate)), disabled: ro });
-  hrIn.addEventListener("change", function () { set.extraHourRate = num(hrIn.value); persist(); });
-  oc.appendChild(h("div", { class: "field" }, h("span", null, "เรทชั่วโมงเสริม (บาท/ชม.)"), hrIn,
-    h("small", null, set.extraHourNote || "ใช้คูณกับชั่วโมงเสริมในบันทึกเวร")));
+  var hrIn = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรทเวรแทน", value: String(Math.round(num(set.extraHourRate) * SUB_H * 100) / 100), disabled: ro });
+  hrIn.addEventListener("change", function () { set.extraHourRate = num(hrIn.value) / SUB_H; persist(); });
+  oc.appendChild(h("div", { class: "field" }, h("span", null, "เวรแทน (บาท/เวร)"), hrIn,
+    h("small", null, "เวรที่รับมาแทนคนอื่น 1 เวร = 8 ชั่วโมง ใส่จำนวนเวรในบันทึกเวร")));
   var ocIn = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท Oncall", value: String(num(set.oncallRate)), disabled: ro });
   ocIn.addEventListener("change", function () { set.oncallRate = num(ocIn.value); persist(); });
   oc.appendChild(h("div", { class: "field" }, h("span", null, "Oncall (บาท/ครั้ง)"), ocIn));
@@ -1165,7 +1181,7 @@ function startDevice() {
 function boot() {
   var hash = (location.hash || "").replace("#", "");
   if (["summary", "log", "year", "rates"].indexOf(hash) >= 0) state.tab = hash;
-  var dl = h("datalist", { id: "hrlist" }, h("option", { value: "8" }), h("option", { value: "16" })); document.body.appendChild(dl);
+  var dl = h("datalist", { id: "hrlist" }, h("option", { value: "0.5" }), h("option", { value: "1" }), h("option", { value: "2" })); document.body.appendChild(dl);
   initTheme();
   renderAll();
   var useP = (window.claude && window.claude.use) ? Promise.all([window.claude.use("db"), window.claude.use("user")]) : Promise.resolve([null, null]);
