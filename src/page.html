@@ -115,6 +115,17 @@ main { padding-block: 18px 56px; display: block; }
 .hero .big { font-size: clamp(36px, 9vw, 54px); font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
 .hero .big small { font-size: 0.45em; font-weight: 500; color: var(--ink2); margin-left: 4px; }
 .hero .meta { color: var(--ink2); font-size: 14px; }
+.split { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.split > div { background: var(--field); border-radius: 8px; padding: 6px 12px; min-width: 150px; }
+.split span { display: block; font-size: 12px; color: var(--ink2); }
+.split b { font-size: 16px; font-weight: 600; }
+.wdp { border: 1px solid var(--grid); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+.wdp .ph { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; margin-bottom: 4px; }
+.wdp .ph input { width: auto; }
+.wdp .ph .sp { flex: 1; }
+.wdp .cur { font-size: 11.5px; font-weight: 600; background: var(--accent-strong); color: var(--on-accent); border-radius: 999px; padding: 1px 8px; }
+.rrow.wdr { grid-template-columns: minmax(120px, 1fr) 130px; }
+.rrow.otr { grid-template-columns: minmax(120px, 1.4fr) 120px 110px 38px; }
 .delta { text-align: right; font-size: 13px; color: var(--ink2); }
 .delta b { display: block; font-size: 16px; color: var(--ink); }
 .delta .up { color: var(--good); }
@@ -244,6 +255,10 @@ input:disabled, select:disabled { opacity: .6; cursor: not-allowed; }
   .rrow > :nth-child(1) { grid-area: d; } .rrow > :nth-child(2) { grid-area: s; } .rrow > :nth-child(3) { grid-area: t; } .rrow > :nth-child(4) { grid-area: r; } .rrow > :nth-child(5) { grid-area: x; }
   .rrow.ref { grid-template-columns: 1fr 100px 38px; grid-template-areas: none; }
   .rrow.ref > * { grid-area: auto !important; justify-self: stretch !important; }
+  .rrow.wdr { grid-template-columns: 1fr 120px; grid-template-areas: none; padding: 8px 0; }
+  .rrow.wdr > * { grid-area: auto !important; }
+  .rrow.otr { grid-template-columns: 1fr 110px 38px; grid-template-areas: "s s s" "t r x"; }
+  .rrow.otr > :nth-child(1) { grid-area: s; } .rrow.otr > :nth-child(2) { grid-area: t; } .rrow.otr > :nth-child(3) { grid-area: r; } .rrow.otr > :nth-child(4) { grid-area: x; }
 }
 
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); }
@@ -298,21 +313,45 @@ function codeOf(shift) {
   if (shift.indexOf("ดึก") >= 0) return "ด";
   return shift.replace(/^เวร/, "").slice(0, 3);
 }
+function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+// Weekday shift pay is part of the salary, so its rate changes whenever the salary does:
+// settings.wdPeriods = [{id, from:"YYYY-MM-DD" ("" = from the beginning), rates:{shiftName: baht}}].
+// Old data without periods falls back to the weekday rows of settings.rates.
+function wdPeriods(settings) {
+  var ps = (settings && settings.wdPeriods) || [];
+  if (ps.length) return ps.slice().sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; });
+  var rates = {}, any = false;
+  ((settings && settings.rates) || []).forEach(function (r) { if (r.dayType === WD && r.shift) { rates[r.shift] = num(r.rate); any = true; } });
+  return any ? [{ id: "base", from: "", rates: rates }] : [];
+}
+function otRows(settings) {
+  return ((settings && settings.rates) || []).filter(function (r) { return r.dayType === OT; });
+}
 function shiftList(settings) {
   var out = [];
-  ((settings && settings.rates) || []).forEach(function (r) { if (r.shift && out.indexOf(r.shift) < 0) out.push(r.shift); });
+  function add(n) { if (n && out.indexOf(n) < 0) out.push(n); }
+  ((settings && settings.rates) || []).forEach(function (r) { add(r.shift); });
+  wdPeriods(settings).forEach(function (p) { Object.keys(p.rates || {}).forEach(add); });
   return out;
 }
 function rateIndex(settings) {
-  var idx = {};
-  ((settings && settings.rates) || []).forEach(function (r) { idx[r.shift + "|" + r.dayType] = num(r.rate); });
-  return idx;
+  var ot = {}, ps = wdPeriods(settings);
+  otRows(settings).forEach(function (r) { ot[r.shift] = num(r.rate); });
+  return {
+    ot: ot,
+    wd: function (date, shift) {
+      var pick = null;
+      ps.forEach(function (p) { if ((p.from || "") <= (date || "")) pick = p; });
+      if (!pick) pick = ps[0];
+      return pick && pick.rates && has(pick.rates, shift) ? num(pick.rates[shift]) : undefined;
+    }
+  };
 }
 function entryCalc(e, idx, hr) {
   var rate = 0, missing = false;
   if (e.shift && e.dayType && e.dayType !== OFF) {
-    var k = e.shift + "|" + e.dayType;
-    if (Object.prototype.hasOwnProperty.call(idx, k)) rate = idx[k]; else missing = true;
+    var r = e.dayType === OT ? (has(idx.ot, e.shift) ? idx.ot[e.shift] : undefined) : e.dayType === WD ? idx.wd(e.date, e.shift) : undefined;
+    if (r === undefined) missing = true; else rate = r;
   }
   var hp = num(e.hours) * hr;
   return { shiftPay: rate, hoursPay: hp, total: rate + hp, missing: missing };
@@ -581,12 +620,12 @@ function monthNav() {
     h("button", { class: "btn", disabled: isNow, onclick: function () { state.sel = { y: now.getFullYear(), m: now.getMonth() }; renderAll(); } }, "เดือนนี้"));
 }
 function noRatesNotice() {
-  if (state.settings && state.settings.rates && state.settings.rates.length) return null;
+  if (state.settings && ((state.settings.rates && state.settings.rates.length) || (state.settings.wdPeriods && state.settings.wdPeriods.length))) return null;
   return h("div", { class: "notice warn" }, h("b", null, "ยังไม่ได้ตั้งเรทค่าเวร "),
     "ค่าเวรจะเป็น 0 จนกว่าจะมีเรท ", h("button", { class: "link", onclick: function () { go("rates"); } }, "ไปตั้งค่าเรท"));
 }
 var PARTS = [
-  ["wd", "ค่าเวรวันธรรมดา", "--s1"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
+  ["wd", "ค่าเวรวันธรรมดา (ในเงินเดือน)", "--s1"], ["ot", "ค่าเวร OT", "--s2"], ["hours", "ชั่วโมงเสริม", "--s3"],
   ["refer", "Refer", "--s4"], ["oncall", "Oncall", "--s5"], ["others", "รายได้อื่นๆ", "--s6"]
 ];
 function chip(e) {
@@ -621,7 +660,10 @@ function renderSummary(root) {
     h("div", null,
       h("div", { class: "lab" }, "รายได้รวม " + monthTitle(y, m)),
       h("div", { class: "big num" }, "฿" + nf0.format(whole), frac ? h("small", null, "." + pad(frac)) : null),
-      h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · ชั่วโมงเสริม " + S.hours.all + " ชม.")),
+      h("div", { class: "meta" }, S.nShifts.all + " เวร · ทำงาน " + S.workDays + " วัน · ชั่วโมงเสริม " + S.hours.all + " ชม."),
+      h("div", { class: "split" },
+        h("div", null, h("span", null, "ค่าเวรในเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.parts.wd))),
+        h("div", null, h("span", null, "โอที + นอกเงินเดือน"), h("b", { class: "num" }, "฿" + money(S.total - S.parts.wd))))),
     delta));
 
   // composition
@@ -932,29 +974,70 @@ function renderRates(root) {
   root.appendChild(h("div", { class: "toolbar" }, h("h1", { style: "text-align:left;margin-left:0" }, "ตั้งค่าเรท")));
   var stack = h("div", { class: "stack" }); root.appendChild(stack);
   if (ro) stack.appendChild(h("div", { class: "notice warn" }, h("b", null, "ดูอย่างเดียว "), "บัญชีนี้แก้ไขเรทไม่ได้"));
-  if (!set.rates.length) stack.appendChild(h("div", { class: "notice" }, h("b", null, "ยังไม่มีเรทค่าเวร "), "กด “เพิ่มเรท” เพื่อเริ่มต้น ค่าเวรในบันทึกจะดึงจากตารางนี้ตามประเภทวันและเวร"));
 
-  // shift rates
-  var rc = h("div", { class: "card" }, h("h2", null, "เรทค่าเวร", h("small", null, "บาทต่อเวร")));
-  rc.appendChild(h("div", { class: "rrow h" }, h("span", null, "ประเภทวัน"), h("span", null, "เวรที่ทำ"), h("span", null, "ช่วงเวลา"), h("span", null, "เรท (บาท)"), h("span")));
+  // weekday shift rates: part of the salary, so they are set per period (salary changes every ~6 months)
+  if (!set.wdPeriods) {
+    set.wdPeriods = wdPeriods(set).map(function (p) { return { id: p.id === "base" ? newId() : p.id, from: p.from, rates: p.rates }; });
+    set.rates = set.rates.filter(function (r) { return r.dayType !== WD; });
+  }
+  var t0 = new Date(), todayIso = mkey(t0.getFullYear(), t0.getMonth()) + "-" + pad(t0.getDate());
+  var names = shiftList(set);
+  var wc = h("div", { class: "card" }, h("h2", null, "ค่าเวรวันธรรมดา", h("small", null, "คิดรวมในเงินเดือน")));
+  wc.appendChild(h("p", { class: "tnote", style: "margin-top:0" }, "เรทเวรวันธรรมดาขึ้นกับเงินเดือน เมื่อเงินเดือนเปลี่ยนให้กด “เพิ่มช่วงเรทใหม่” แล้วกรอกเรทและวันที่เริ่มมีผล เดือนเก่าจะใช้เรทเดิม ไม่เปลี่ยนตาม"));
+  var plist = set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? 1 : a.from > b.from ? -1 : 0; });
+  var curP = null; set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; }).forEach(function (q) { if ((q.from || "") <= todayIso) curP = q; });
+  if (!plist.length) wc.appendChild(h("div", { class: "notice" }, "ยังไม่มีช่วงเรท กด “เพิ่มช่วงเรทใหม่” เพื่อเริ่มต้น"));
+  plist.forEach(function (pd) {
+    var head = h("div", { class: "ph" });
+    if (pd.from === "") head.appendChild(h("span", null, "เรทเริ่มต้น"));
+    else {
+      var di = h("input", { type: "date", "aria-label": "เริ่มมีผลวันที่", value: pd.from, disabled: ro });
+      di.addEventListener("change", function () { if (di.value) { pd.from = di.value; persist(); renderAll(); } });
+      head.appendChild(h("span", null, "มีผลตั้งแต่")); head.appendChild(di);
+    }
+    if (pd === curP || (curP && pd.id === curP.id)) head.appendChild(h("span", { class: "cur" }, "ใช้อยู่ตอนนี้"));
+    head.appendChild(h("span", { class: "sp" }));
+    if (set.wdPeriods.length > 1) head.appendChild(h("button", { class: "btn icon", type: "button", "aria-label": "ลบช่วงเรทนี้", disabled: ro, onclick: function () {
+      if (!window.confirm("ลบช่วงเรทนี้? เดือนที่เคยใช้เรทช่วงนี้จะไปใช้เรทช่วงอื่นแทน")) return;
+      set.wdPeriods = set.wdPeriods.filter(function (q) { return q !== pd; }); persist(); renderAll(); } }, "×"));
+    var box = h("div", { class: "wdp" }, head);
+    names.forEach(function (nm) {
+      var ri = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท " + nm, value: pd.rates && has(pd.rates, nm) ? String(num(pd.rates[nm])) : "", placeholder: "—", disabled: ro });
+      ri.addEventListener("change", function () { if (!pd.rates) pd.rates = {}; if (ri.value === "") delete pd.rates[nm]; else pd.rates[nm] = num(ri.value); persist(); });
+      box.appendChild(h("div", { class: "rrow wdr" }, h("span", null, nm), ri));
+    });
+    wc.appendChild(box);
+  });
+  var nn = h("input", { type: "text", placeholder: "ชื่อเวรใหม่", "aria-label": "ชื่อเวรใหม่", disabled: ro });
+  wc.appendChild(h("div", { class: "bk" },
+    h("button", { class: "btn primary", type: "button", disabled: ro, onclick: function () {
+      var newest = set.wdPeriods.slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; }).pop();
+      var cp = {}; if (newest && newest.rates) Object.keys(newest.rates).forEach(function (k) { cp[k] = newest.rates[k]; });
+      set.wdPeriods.push({ id: newId(), from: set.wdPeriods.length ? todayIso : "", rates: cp }); persist(); renderAll(); } }, "+ เพิ่มช่วงเรทใหม่ (เงินเดือนเปลี่ยน)")));
+  wc.appendChild(h("div", { class: "bk" }, nn, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () {
+    var v = nn.value.trim(); if (!v || names.indexOf(v) >= 0) return;
+    if (!set.wdPeriods.length) set.wdPeriods.push({ id: newId(), from: "", rates: {} });
+    set.wdPeriods.forEach(function (q) { if (!q.rates) q.rates = {}; q.rates[v] = 0; }); persist(); renderAll(); } }, "+ เพิ่มชื่อเวร")));
+  stack.appendChild(wc);
+
+  // OT rates: fixed
+  var rc = h("div", { class: "card" }, h("h2", null, "ค่าเวร OT", h("small", null, "เรทคงที่ บาทต่อเวร")));
+  rc.appendChild(h("div", { class: "rrow otr h" }, h("span", null, "เวรที่ทำ"), h("span", null, "ช่วงเวลา"), h("span", null, "เรท (บาท)"), h("span")));
   set.rates.forEach(function (r, i) {
+    if (r.dayType !== OT) return;
     if (!r.id) r.id = "r" + i;
-    var dt = h("select", { "aria-label": "ประเภทวัน แถว " + (i + 1), disabled: ro });
-    [WD, OT].forEach(function (t) { dt.appendChild(h("option", { value: t }, t)); });
-    dt.value = r.dayType;
-    var sh = h("input", { type: "text", "aria-label": "ชื่อเวร แถว " + (i + 1), value: r.shift || "", disabled: ro });
+    var sh = h("input", { type: "text", "aria-label": "ชื่อเวร OT แถว " + (i + 1), value: r.shift || "", disabled: ro });
     var tm = h("input", { type: "text", "aria-label": "ช่วงเวลา แถว " + (i + 1), value: r.time || "", disabled: ro });
-    var rt = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท แถว " + (i + 1), value: String(num(r.rate)), disabled: ro });
-    var del = h("button", { class: "btn icon", type: "button", "aria-label": "ลบเรทแถว " + (i + 1), disabled: ro, onclick: function () { set.rates.splice(i, 1); persist(); renderAll(); } }, "×");
-    dt.addEventListener("change", function () { r.dayType = dt.value; persist(); });
+    var rt = h("input", { type: "number", step: "any", inputmode: "decimal", "aria-label": "เรท OT แถว " + (i + 1), value: String(num(r.rate)), disabled: ro });
+    var del = h("button", { class: "btn icon", type: "button", "aria-label": "ลบเรท OT แถว " + (i + 1), disabled: ro, onclick: function () { set.rates.splice(i, 1); persist(); renderAll(); } }, "×");
     sh.addEventListener("change", function () { r.shift = sh.value.trim(); persist(); });
     tm.addEventListener("change", function () { r.time = tm.value.trim(); persist(); });
     rt.addEventListener("change", function () { r.rate = num(rt.value); persist(); });
-    rc.appendChild(h("div", { class: "rrow" }, dt, sh, tm, rt, del));
+    rc.appendChild(h("div", { class: "rrow otr" }, sh, tm, rt, del));
   });
   rc.appendChild(h("div", { style: "margin-top:12px" }, h("button", { class: "btn", type: "button", disabled: ro, onclick: function () {
-    set.rates.push({ id: newId(), dayType: WD, shift: "", time: "", rate: 0 }); persist(); renderAll(); } }, "+ เพิ่มเรท")));
-  rc.appendChild(h("p", { class: "tnote" }, "ชื่อเวรและประเภทวันต้องตรงกับที่เลือกในบันทึกเวร ระบบจับคู่จาก “เวร + ประเภทวัน” ถ้าไม่พบจะขึ้น “ไม่พบเรท” เรทที่แก้มีผลกับทุกเดือนที่บันทึกไว้"));
+    set.rates.push({ id: newId(), dayType: OT, shift: "", time: "", rate: 0 }); persist(); renderAll(); } }, "+ เพิ่มเรท OT")));
+  rc.appendChild(h("p", { class: "tnote" }, "ชื่อเวรต้องตรงกับที่เลือกในบันทึกเวร ถ้าไม่พบเรทจะขึ้น “ไม่พบเรท”"));
   stack.appendChild(rc);
 
   // other rates
